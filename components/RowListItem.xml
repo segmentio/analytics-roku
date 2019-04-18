@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<component name = "RowListItem" extends = "Group" >
+
+  <script type="text/brightscript" uri="pkg:/components/RowListItem.brs" />
+
+  <interface >
+
+    <field id = "itemContent" type = "node" onChange = "showContent"/>
+
+    <field id = "focusPercent" type = "float" onChange = "showFocus"/>
+
+  </interface>
+
+  <children >
+
+    <Rectangle
+      id = "itemMask"
+      color = "0x000000FF"
+      opacity = "0.75"
+      width = "150"
+      height = "50" />
+
+    <Label
+      id = "itemLabel"
+      horizAlign = "center"
+      vertAlign="center"
+      width = "150"
+      height = "50"
+      opacity = "0.75"/>
+
+  </children>
+
+</component>

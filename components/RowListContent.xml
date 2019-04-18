@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<component name = "RowListContent" extends = "ContentNode" >
+
+  <children >
+
+    <ContentNode title = "Perform Segment Analytics function" >
+
+      <ContentNode title = "Identify" />
+
+      <ContentNode title = "Track"/>
+
+      <ContentNode title = "Screen"/>
+
+      <ContentNode title = "Group" />
+
+      <ContentNode title = "Alias" />
+
+    </ContentNode>
+
+  </children>
+
+</component>

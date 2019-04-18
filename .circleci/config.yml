@@ -1,0 +1,22 @@
+version: 2
+jobs:
+  build:
+    docker:
+      - image: node
+
+    steps:
+      - checkout
+      - run:
+          name: installing software
+          command: |
+            apt-get update
+            apt-get install -y zip unzip
+            npm install brightscript-language -g
+      - run:
+          name: linting
+          command: make check
+      - run:
+          command: make library
+      - store_artifacts:
+          path: ./SegmentAnalytics.zip
+          destination: analytics-roku.zip

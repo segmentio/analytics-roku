@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<component name="SegmentAnalyticsTask" extends="Task"
+	xsi:noNamespaceSchemaLocation="https://devtools.web.roku.com/schema/RokuSceneGraph.xsd">
+
+  <interface>
+
+    <!-- must be set before starting the task -->
+    <field id="config" type="assocarray"/>
+
+    <!-- event call, example {name: "someEvent", payload: {}} -->
+    <field id="event" type="assocarray" alwaysNotify="true"/>
+
+  </interface>
+
+  <!-- will need to be updated by app developers for the given app folder structure -->
+  <script type="text/brightscript" uri="pkg:/components/analytics/SegmentAnalyticsTask.brs" />
+
+  <script type="text/brightscript" uri="pkg:/source/analytics/SegmentAnalytics.brs" />
+
+</component>

@@ -1,0 +1,48 @@
+.DS_Store
+build
+dist.zip
+###BrightScript specific
+dist/apps
+out/
+dist/
+
+### Eclipse project files
+
+.metadata
+bin/
+tmp/
+*.tmp
+*.bak
+*.swp
+*~.nib
+local.properties
+.settings/
+.loadpath
+.recommenders
+
+# Eclipse Core
+.project
+.classpath
+
+# External tool builders
+.externalToolBuilders/
+
+# Locally stored "Eclipse launch configurations"
+*.launch
+
+#node
+node_modules/
+
+# Intellij
+*.iml
+.idea/
+
+*.zip
+
+# Roku compiler generated files
+/source/tests/rooibosFunctionMap.brs
+/source/buildinfo.brs
+/SegmentAnalytics/
+
+env
+uatest-results.txtc

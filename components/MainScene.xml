@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<component name="MainScene" extends="Scene"
+  xsi:noNamespaceSchemaLocation="https://devtools.web.roku.com/schema/RokuSceneGraph.xsd">
+
+  <script type="text/brightscript" uri="pkg:/components/MainScene.brs" />
+
+  <script type="text/brightscript" uri="pkg:/source/analytics/SegmentAnalyticsConnector.brs" />
+
+  <children>
+
+    <SegmentAnalyticsTask id="libraryTask"/>
+
+    <RowList
+      id = "exampleRowList"
+      translation = "[ 100, 100 ]"
+      itemComponentName = "RowListItem"
+      numRows = "1"
+      itemSize = "[ 1500, 400 ]"
+      rowItemSize = "[ [200, 200] ]"
+      itemSpacing = "[ 40, 40 ]"
+      showRowLabel = "[ true ]"
+      drawFocusFeedback = "false"
+      vertFocusAnimationStyle = "fixedFocusWrap"
+      rowFocusAnimationStyle = "fixedFocusWrap" />
+
+  </children>
+
+</component>

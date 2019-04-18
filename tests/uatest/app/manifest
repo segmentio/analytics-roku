@@ -1,0 +1,22 @@
+##   Channel Details
+title=Segment UATest
+major_version=1
+minor_version=0
+build_version=00001
+
+##   Channel Assets
+mm_icon_focus_fhd=pkg:/images/Segment_avatar_green_RGB.png
+mm_icon_focus_hd=pkg:/images/Segment_avatar_green_RGB.png
+mm_icon_focus_sd=pkg:/images/Segment_avatar_green_RGB.png
+
+###  Splash Screen + Loading Screen Artwork 
+splash_screen_fhd=pkg:/images/Segment_avatar_white_RGB.png
+splash_screen_hd=pkg:/images/Segment_avatar_blue_RGB.png
+splash_screen_sd=pkg:/images/Segment_avatar_green_RGB.png
+
+splash_color=#000000
+splash_min_time=5
+
+analytics_server=api.segment.io
+analytics_write_key=TwGP04ERBeHZdJB9e4MLVXlLCWEpJqOQ
+rsg_version=1.2

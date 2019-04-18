@@ -1,0 +1,9 @@
+{
+  "skipPackage": "true",
+  "files": [
+    "manifest",
+    "source/analytics/*.*",
+    "source/main.brs",
+    "components/analytics/*.*"
+  ]
+}

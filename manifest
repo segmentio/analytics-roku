@@ -1,0 +1,8 @@
+title=SegmentAnalytics
+major_version=0
+minor_version=1
+build_version=1
+rsg_version=1.2
+splash_color=#662D91
+splash_min_time=1000
+ui_resolutions = "hd"

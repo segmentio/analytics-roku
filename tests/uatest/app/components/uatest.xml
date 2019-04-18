@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<component name="UATest" extends="Scene">
+  <interface>
+		<function name="processECPInput"/>
+	</interface>
+  <script type="text/brightscript" uri="pkg:/components/uatest.brs"/>
+  <script type="text/brightscript" uri="pkg:/source/analytics/SegmentAnalyticsConnector.brs" />
+	<children>
+      <Label id="uatestLabel"
+      	text="analytics-roku UA Tests"
+      	width="1280"
+      	height="720"
+      	horizAlign="left"
+      	vertAlign="top"
+      	/>
+			<Label id="inputInfoLabel"
+      	text=""
+      	width="640"
+      	height="360"
+      	horizAlign="left"
+      	vertAlign="center"
+      	/>
+      <Label id="statusLabel"
+      	text=""
+      	width="960"
+      	height="360"
+      	horizAlign="left"
+      	vertAlign="bottom"
+      	/>
+
+    <SegmentAnalyticsTask id="analyticsTask"/>
+    </children>
+
+</component>

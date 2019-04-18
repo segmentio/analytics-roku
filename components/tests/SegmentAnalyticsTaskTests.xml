@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<component name="SegmentAnalyticsTaskTests" extends="SegmentAnalyticsTask"
+	xsi:noNamespaceSchemaLocation="https://devtools.web.roku.com/schema/RokuSceneGraph.xsd">
+  
+  <interface>
+
+    <function name="Rooibos_RunNodeTests" />
+
+  </interface>
+
+  <script type="text/brightscript" uri="pkg:/source/tests/SegmentAnalyticsTaskTests.brs" />
+
+  <script type="text/brightscript" uri="pkg:/source/rooibosDist.brs" />
+
+  <script type="text/brightscript" uri="pkg:/source/tests/rooibosFunctionMap.brs" />
+
+  <script type="text/brightscript" uri="pkg:/source/analytics/SegmentAnalyticsConnector.brs" />
+
+  <children>
+
+    <SegmentAnalyticsTask id="libraryTask"/>
+
+  </children>
+
+</component>

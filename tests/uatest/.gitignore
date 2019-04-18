@@ -1,0 +1,6 @@
+app/components/analytics/
+app/source/analytics/
+cli/analytics
+report.xml
+tester_darwin_amd64
+uatest-results.txt

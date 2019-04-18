@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<component name="HelloAnalytics" extends="Scene">
+  <script type="text/brightscript" uri="pkg:/components/helloanalytics.brs"/>
+  <script type="text/brightscript" uri="pkg:/source/analytics/SegmentAnalyticsConnector.brs"/>
+	<children>
+      <Label id="helloLabel"
+      	text="Hello Analytics!"
+      	width="1280"
+      	height="720"
+      	horizAlign="center"
+      	vertAlign="center"
+      	/>
+      <Label id="actionLabel"
+      	text="Press any button (except Back) on the remote to send an event to Segment"
+      	width="800"
+      	height="360"
+      	horizAlign="center"
+      	vertAlign="center"
+        translation="[318,300]"
+      	/>
+      <Label id="statusLabel"
+      	text="status"
+      	width="640"
+      	height="360"
+      	horizAlign="center"
+      	vertAlign="center"
+        translation="[318,400]"
+       />
+      <SegmentAnalyticsTask id="analyticsTask"/>
+    </children>
+</component>
