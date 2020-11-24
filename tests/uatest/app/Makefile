@@ -32,7 +32,7 @@ copy-library:
 
 .PHONY: lint
 lint:
-	brsc --skip-package yes
+	bsc --create-package false
 
 # Sometimes the Roku stream stick crashes when side loading the app while it's in
 # screen saving mode. To avoid that, we send a Home button keypress event, which

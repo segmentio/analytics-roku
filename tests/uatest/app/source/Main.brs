@@ -6,30 +6,33 @@ sub RunUserInterface(args)
   scene = screen.CreateScene("UATest")
 	m.global = screen.getGlobalNode()
 	m.global.id = "GlobalNode"
-    m.global.addFields({screen: screen})
+  m.global.addFields({screen: screen})
 
-    screen.show()
+  TF_Utils__IsFunction = TF_Utils__IsFunction
+  TestRunner = TestRunner
 
-    APPInfo = createObject("roAPPInfo")
-    if APPInfo.IsDev() and args.RunTests = "true" and TF_Utils__IsFunction(TestRunner) then
-      print "RUNNING TEST"
-      Runner = TestRunner()
-      Runner.logger.SetVerbosity(2)
-      Runner.RUN()
-    end if
+  screen.show()
 
-    m.input = CreateObject("roInput")
-    m.input.setMessagePort(m.msgPort)
+  APPInfo = createObject("roAPPInfo")
+  if APPInfo.IsDev() and args.RunTests = "true" and TF_Utils__IsFunction(TestRunner) then
+    print "RUNNING TEST"
+    Runner = TestRunner()
+    Runner.logger.SetVerbosity(2)
+    Runner.RUN()
+  end if
 
-    while(true)
-      print "Waiting for input..."
-      msg = wait(0, m.msgPort)
-      if type(msg) = "roInputEvent"
-        if msg.isInput()
-          result = scene.callFunc("processECPInput", msg.GetInfo())
-          m.global.statusLabel.text = "Processed input via ECP, result="+ result.toStr()
-        end if
+  m.input = CreateObject("roInput")
+  m.input.setMessagePort(m.msgPort)
+
+  while(true)
+    print "Waiting for input..."
+    msg = wait(0, m.msgPort)
+    if type(msg) = "roInputEvent"
+      if msg.isInput()
+        result = scene.callFunc("processECPInput", msg.GetInfo())
+        m.global.statusLabel.text = "Processed input via ECP, result="+ result.toStr()
       end if
-    end while
+    end if
+  end while
 end sub
 
