@@ -24,5 +24,6 @@ segment-config: clean-lib
 	unzip ../SegmentAnalytics.zip
 	mv SegmentAnalytics/source/analytics source/
 	mv SegmentAnalytics/components/analytics components/
+	rm -r SegmentAnalytics
 	@if ! grep -q "analytics_write_key" manifest ; then echo "analytics_write_key=$(SEGMENT_WRITE_KEY)" >> manifest ; fi
 
