@@ -11,10 +11,9 @@ end sub
 sub setup()
   m.port = createObject("roMessagePort")
 
-  useFactories = use
-
   config = m.top.config
-  config.factories = useFactories()
+  'bs:disable-next-line
+  config.factories = use()
   m.service = SegmentAnalytics(config, m.port)
 
   m.top.observeField("event", m.port)

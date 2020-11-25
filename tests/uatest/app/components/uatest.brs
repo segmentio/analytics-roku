@@ -18,7 +18,7 @@ function init()
   writeKey = m.appInfo.GetValue("analytics_write_key")
   if writeKey = "" then
     print "********** ERROR: writeKey is not defined. Exiting. **********"
-    ExitUserInterface = ExitUserInterface
+    'bs:disable-next-line
     ExitUserInterface()
   endif
   apiHost = m.appInfo.GetValue("analytics_server")

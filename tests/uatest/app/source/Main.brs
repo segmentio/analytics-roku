@@ -8,14 +8,13 @@ sub RunUserInterface(args)
 	m.global.id = "GlobalNode"
   m.global.addFields({screen: screen})
 
-  TF_Utils__IsFunction = TF_Utils__IsFunction
-  TestRunner = TestRunner
-
   screen.show()
 
   APPInfo = createObject("roAPPInfo")
+  'bs:disable-next-line
   if APPInfo.IsDev() and args.RunTests = "true" and TF_Utils__IsFunction(TestRunner) then
     print "RUNNING TEST"
+    'bs:disable-next-line
     Runner = TestRunner()
     Runner.logger.SetVerbosity(2)
     Runner.RUN()

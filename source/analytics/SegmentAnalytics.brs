@@ -263,10 +263,10 @@ sub _SegmentAnalytics_configBundledIntegrations()
 
     if factory <> invalid and getInterface(factory, "ifFunction") <> invalid and settings <> invalid and type(settings) = "roAssociativeArray" then
       bundledFactories[name] = factory 
-    else if factory = invalid and getInterface(factory, "ifFunction") = invalid 
-      m.log.error("Could not create device mode integration for " + name + " due to missing settings in configuration")
-    else
+    else if factory = invalid or getInterface(factory, "ifFunction") = invalid 
       m.log.error("Could not create device mode integration for " + name + " due to missing factory in configuration")
+    else
+      m.log.error("Could not create device mode integration for " + name + " due to missing settings in configuration")
     end if
   end for
   m.config.factories = bundledFactories
@@ -898,8 +898,8 @@ function _SegmentAnalytics_Request(options as Object, log as Object, port as Obj
     if responseCode >= 200 and responseCode <= 299 and parsedResponse <> invalid then
       m._log.debug("Successful request")
       for each handler in m._successHandlers
-        successHandler = handler
-        successHandler(parsedResponse, m)
+        'bs:disable-next-line
+        handler(parsedResponse, m)
       end for
     else
       errorReason = message.getFailureReason()
@@ -907,8 +907,8 @@ function _SegmentAnalytics_Request(options as Object, log as Object, port as Obj
       m._log.debug("Failed request")
 
       for each handler in m._errorHandlers
-        errorHandler = handler
-        errorHandler(error, m)
+        'bs:disable-next-line
+        handler(error, m)
       end for
     end if
 

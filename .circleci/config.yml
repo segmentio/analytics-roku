@@ -11,7 +11,7 @@ jobs:
           command: |
             apt-get update
             apt-get install -y zip unzip
-            npm install brightscript-language -g
+            npm install brighterscript -g
       - run:
           name: linting
           command: make check

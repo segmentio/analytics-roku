@@ -1,6 +1,7 @@
 sub main(args)
   if args.RunTests <> invalid
     if (type(Rooibos__Init) = "Function") then
+      'bs:disable-next-line
       Rooibos__Init()
     end if
   end if
