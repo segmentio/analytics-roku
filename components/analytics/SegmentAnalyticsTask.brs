@@ -10,8 +10,15 @@ end sub
 
 sub setup()
   m.port = createObject("roMessagePort")
-  m.service = SegmentAnalytics(m.top.config, m.port)
+
+  useFactories = use
+
+  config = m.top.config
+  config.factories = useFactories()
+  m.service = SegmentAnalytics(config, m.port)
+
   m.top.observeField("event", m.port)
+  
   m.queueFlushTime = 30 ' This value represents seconds default to 30 seconds
   m.taskCheckInterval = 500 ' Represents the milliseconds the task should run it's event loop
 end sub
@@ -48,7 +55,7 @@ sub startEventLoop()
     if clock.totalSeconds() > nextQueueFlush then
       m.service.flush()
       nextQueueFlush = clock.TotalMilliseconds() + m.queueFlushTime
-    else if m.service._inProgressId = invalid
+    else
       m.service.checkRequestQueue(clock.totalSeconds())
     end if
 

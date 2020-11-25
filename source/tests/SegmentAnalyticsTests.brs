@@ -1,9 +1,14 @@
 '@TestSuite [SAT] SegmentAnalyticsTests
 
+'@Setup
+function SAT__SetUp() as void
+  m.allowNonExistingMethodsOnMocks = false
+end function
+
 '@BeforeEach
 function SAT_BeforeEach()
   m.config = {
-    writeKey: "0HOweca54NlEfFRen2jwJ4DmopPS9oLi"
+    writeKey: "test"
   }
   m.port = {}
   m.segmentAnalytics = SegmentAnalytics(m.config, m.port)
@@ -15,9 +20,9 @@ end function
 
 '@Test basic constructor values
 function SAT__constructor_basic_success_initial() as void
-  m.AssertEqual(m.segmentAnalytics._config.queueSize, 1)
-  m.AssertEqual(m.segmentAnalytics._config.retryLimit, 1)
-  m.AssertEqual(m.segmentAnalytics._config.writeKey, "0HOweca54NlEfFRen2jwJ4DmopPS9oLi")
+  m.AssertEqual(m.segmentAnalytics.config.queueSize, 1)
+  m.AssertEqual(m.segmentAnalytics.config.retryLimit, 1)
+  m.AssertEqual(m.segmentAnalytics.config.writeKey, "test")
 end function
 
 '+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -25,12 +30,15 @@ end function
 '+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 '@Test other valid constructor values
-'@Params[{"writeKey":"test", "queueSize":2}, {"writeKey":"test", "queueSize":2, "retryLimit":1}]
-'@Params[{"writeKey":"test1", "retryLimit":2}, {"writeKey":"test1", "queueSize":1, "retryLimit":2}]
-'@Params[{"writeKey":"test2", "queueSize":2, "retryLimit":2} , {"writeKey":"test2", "queueSize":2, "retryLimit":2}]
+'@Params[{"writeKey":"test"}, {"writeKey":"test", "queueSize":1, "retryLimit":1, "debug":false, "requestpoolSize":1, "apiHost":"https://api.segment.io", "defaultSettings": {"integrations":{}}}]
+'@Params[{"writeKey":"test1", "queueSize":2, "retryLimit":2, "debug":true, "requestpoolSize":2, "apiHost":"https://api2.segment.io", "integrations":{"testIntegration":{apiKey:}}}, {"writeKey":"test1", "queueSize":2, "retryLimit":2, "debug":true, "requestpoolSize":2, "apiHost":"https://api2.segment.io", "defaultSettings": {"integrations":{"testIntegration":{apiKey:}}}}]
 function SAT__constructor_basic_success_otherValues(config, expectedConfig) as void
   segmentLibrary = SegmentAnalytics(config, {})
-  m.AssertEqual(segmentLibrary._config, expectedConfig)
+  'Segment.io integration factory should be set by default
+  m.AssertEqual(segmentLibrary.config.factories["Segment.io"], _SegmentAnalytics_SegmentIntegrationFactory)
+  segmentLibrary.config.delete("factories")
+  m.AssertEqual(segmentLibrary.config, expectedConfig)
+  m.AssertEqual(segmentLibrary.config.debug, segmentLibrary.log.debugEnabled)
 end function
 
 '+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -38,7 +46,7 @@ end function
 '+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 '@Test missing write key value
-'@Params[invalid]
+'@Params[null]
 '@Params["test"]
 '@Params[{"writeKey":""}]
 '@Params[{"writeKey":invalid}]
@@ -49,204 +57,6 @@ end function
 function SAT__constructor_fail(config) as void
   segmentLibrary = SegmentAnalytics(config, {})
   m.AssertInvalid(segmentLibrary)
-end function
-
-'+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-'@It test identify call works as expected
-'+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-
-'@Test identify
-'@Params[{"userId": "testUserId", "traits": invalid, "options": invalid}]
-'@Params[{"userId": "testUserId", "traits": "test", "options": {"test": "test"}]
-'@Params[{"userId": "testUserId", "traits": {}, "options": {}]
-function SAT__identify(testObj) as void
-  m.ExpectOnce(m.segmentAnalytics, "_queueMessage", invalid, invalid, true)
-  m.segmentAnalytics.identify(testObj.userId, testObj.traits, testObj.options)
-end function
-
-'+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-'@It test track call works as expected
-'+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-
-'@Test track
-'@Params[{"event": "testEvent", "properties": invalid, "options": {"userId": "testUserId"}}]
-'@Params[{"event": "testEvent", "properties": {}, "options": {"userId": "testUserId"}}]
-'@Params[{"event": "testEvent", "properties": "testProperties", "options": {"userId": "testUserId"}}]
-function SAT__track(testObj) as void
-  m.ExpectOnce(m.segmentAnalytics, "_queueMessage", invalid, invalid, true)
-  m.segmentAnalytics.track(testObj.event, testObj.properties, testObj.options)
-end function
-
-'+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-'@It test screen call works as expected
-'+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-
-'@Test screen
-'@Params[{"name": "testName", "category": invalid, "properties": invalid, "options": {"userId": "testUserId"}}]
-'@Params[{"name": "valid, "category": "testCategory", "properties": {}, "options": {"userId": "testUserId"}}]
-'@Params[{"name": "testName", "category": "testCategory", "properties": "test", "options": {"userId": "testUserId"}}]
-function SAT__screen(testObj) as void
-  m.ExpectOnce(m.segmentAnalytics, "_queueMessage", invalid, invalid, true)
-  m.segmentAnalytics.screen(testObj.name, testObj.category, testObj.properties, testObj.options)
-end function
-
-'+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-'@It test group call works as expected
-'+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-
-'@Test group
-'@Params[{"userId": "testUserId", "groupId": "testGroupId", "traits": invalid, "options": invalid}]
-'@Params[{"userId": "testUserId", "groupId": "testGroupId", "traits": "testTraits", "options": "testOptions"}]
-'@Params[{"userId": "testUserId", "groupId": "testGroupId", "traits": {}, "options": {}}]
-function SAT__group(testObj) as void
-  m.ExpectOnce(m.segmentAnalytics, "_queueMessage", invalid, invalid, true)
-  m.segmentAnalytics.group(testObj.userId, testObj.groupId, testObj.traits, testObj.options)
-end function
-
-'+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-'@It test alias call works as expected
-'+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-
-'@Test alias
-'@Params[{"userId": "testUserId", "options": invalid}]
-'@Params[{"userId": "testUserId", "options": {}}]
-'@Params[{"userId": "testUserId", "options": {"test": "test"}]
-function SAT__alias(testObj) as void
-   m.ExpectOnce(m.segmentAnalytics, "_queueMessage", invalid, invalid, true)
-   m.segmentAnalytics.alias(testObj.userId, testObj.options)
-end function
-
-'+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-'@It test successful handleRequestMessage call
-'+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-
-'@Test handleRequestMessage with successful object
-'@Params[200]
-'@Params[403]
-'@Params[404]
-function SAT__handleRequestMessage_success(responseCode) as void
-
-   'Assigning responseCode as member variable to be accessed in own function definition for test
-   successMessage = {
-     responseCode: responseCode
-     getResponseCode: function()
-         return m.responseCode
-       end function
-     getSourceIdentity: function()
-         return 0
-       end function
-   }
-   handleMessage = sub(result as Object)
-     end sub
-   m.segmentAnalytics._serverRequestsById.addReplace("0", {"retryCount": 0, "handleMessage": handleMessage})
-   m.ExpectNone(m.segmentAnalytics, "_setRequestAsRetry", true)
-   m.segmentAnalytics.handleRequestMessage(successMessage, 0)
-end function
-
-'+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-'@It test failed handleRequestMessage call
-'+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-
-'@Test handleRequestMessage with failed object
-'@Params[429]
-'@Params[500]
-'@Params[501]
-function SAT__handleRequestMessage_fail(responseCode as Integer) as void
-
-  'Assigning responseCode as member variable to be accessed in own function definition for test
-  failedMessage = {
-    responseCode: responseCode
-    getResponseCode: function() as Integer
-       return m.responseCode
-     end function
-    getSourceIdentity: function()
-        return 0
-      end function
-  }
-  handleMessage = sub(result as Object)
-       end sub
-  m.segmentAnalytics._serverRequestsById.addReplace("0", {retryCount:0, "handleMessage": handleMessage})
-  m.ExpectOnce(m.segmentAnalytics, "_setRequestAsRetry", invalid, invalid, true)
-  m.segmentAnalytics.handleRequestMessage(failedMessage, 0)
-end function
-
-'+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-'@It test sendRequest (This test might take a while to perform)
-'+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-
-'@Test sendRequest with back pressure logic
-function SAT__sendRequest() as void
-  for i=0 to 1500
-    m.segmentAnalytics._sendRequest([])
-  end for
-  m.AssertEqual(m.segmentAnalytics._serverRequestsById.count(), 1000)
-end function
-
-'+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-'@It test sending method invocation
-'+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-
-'@Test ensuring send works
-'@Params[{ "type": "identify", "userId": "testIdentifyId", "traits": "testIdentifyTraits", "options": {"userId": "testUserId"}}]
-function SAT__send(data) as void
-  requestOptions = m.segmentAnalytics._createPostOptions(data)
-  request = m.segmentAnalytics._createRequest(requestOptions)
-  'm.ExpectOnce(request, "handleMessage", invalid, invalid, true)
-  request.send()
-end function
-
-'+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-'@It tests creatingPostOptions singular requests
-'+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-
-'@Test validate data request creation
-'@Params[{type: "identify", userId: "testIdentifyId", traits: "testIdentifyTraits", options: "testIdentifyOptions"}]
-'@Params[{type: "track", event: "eventTrack", properties: "testTrackProperties", options: "testTrackOptions"}]
-'@Params[{type: "screen", name: "screenName", category: "screenCategory", properties: "testScreenProperties", options: "testScreenOptions"}]
-'@Params[{type: "group", userId: "testGroupUserId", groupId: "testGroupId", traits: "testGroupTraits", options: "testGroupOptions"}]
-'@Params[{type: "alias", userId: "newIdAlias", options: "testAliasOptions"}]
-function SAT__createRequest(data) as void
-  requestOptions = m.segmentAnalytics._createPostOptions(data)
-
-  m.AssertEqual(requestOptions.data.context.library.name, m.segmentAnalytics._libraryName)
-  m.AssertEqual(requestOptions.data.context.library.version, m.segmentAnalytics._libraryVersion)
-  m.AssertEqual(requestOptions.method, "POST")
-  m.AssertEqual(requestOptions.url, "https://api.segment.io/v1/batch")
-  m.AssertEqual(requestOptions.headers["Authorization"], "Basic: MEhPd2VjYTU0TmxFZkZSZW4yandKNERtb3BQUzlvTGk=")
-  m.AssertEqual(requestOptions.headers["Content-Type"], "application/json")
-  m.AssertEqual(requestOptions.headers["Accept"], "application/json")
-
-  request = m.segmentAnalytics._createRequest(requestOptions)
-  m.AssertNotEmpty(request)
-end function
-
-'+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-'@It testing logging function runs as expected
-'+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-
-'@Test ensuring log works with correct use cases
-'@Params[{"writeKey": "test", debug: true}]
-function SAT__log_successful(config) as void
-  segmentLibrary = SegmentAnalytics(config, invalid)
-  'm.ExpectOnce(m, "print", invalid, invalid, true)
-  segmentLibrary._log("TestDebug", "DEBUG")
-  'm.ExpectOnce(m, "print", invalid, invalid, true)
-  segmentLibrary._log("TestError", "ERROR")
-end function
-
-'+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-'@It testing logging function does not get invoked
-'+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-
-'@Test ensure we don't call print inadvertently with debug on
-'@Params[{"writeKey": "test"}]
-'@Params[{"writeKey": "test", debug: false}]
-function SAT__log_fail(config) as void
-  segmentLibrary = SegmentAnalytics(config, invalid)
-  'm.ExpectNone(m, "print", true)
-  segmentLibrary._log("TestDebug", "DEBUG")
-  'm.ExpectOnce(m, "print", invalid, invalid, true)
-  segmentLibrary._log("TestError", "ERROR")
 end function
 
 '+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -277,7 +87,7 @@ end function
 '@Params[{"userId": ""}]
 '@Params[{"anonymousId": ""}]
 function SAT__checkValidId_fail(data) as void
-    m.AssertFalse(m.segmentAnalytics._checkValidId(data))
+  m.AssertFalse(m.segmentAnalytics._checkValidId(data))
 end function
 
 '+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -349,141 +159,150 @@ function SAT__addValidFieldToAA_fail(result, field, input) as void
 end function
 
 '+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-'@It tests queueMessage with valid data (5)
+'@It tests identify call with valid data
 '+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-'@Test ensures we have the right number of items in the message queue and that we don't prematurely fire off a send request (5 in queue)
-'@Params[{ type: "group", userId: "testGroupUserId", groupId: "testGroupId", traits: "testGroupTraits", options: "testGroupOptions"}, {"writeKey": "test", "queueSize": 5}]
-function SAT__addToMessageQueue5(data, config) as void
-  segmentLibrary = SegmentAnalytics(config, {})
-
-  m.AssertEqual(segmentLibrary._queueSize, config.queueSize)
-
-  m.ExpectNone(segmentLibrary, "_sendRequest", true)
-  segmentLibrary._queueMessage(data)
-  m.AssertEqual(segmentLibrary._messageQueue.count(), 1)
-
-  m.ExpectNone(segmentLibrary, "_sendRequest", true)
-  segmentLibrary._queueMessage(data)
-  m.AssertEqual(segmentLibrary._messageQueue.count(), 2)
-
-  m.ExpectNone(segmentLibrary, "_sendRequest", true)
-  segmentLibrary._queueMessage(data)
-  m.AssertEqual(segmentLibrary._messageQueue.count(), 3)
-
-  m.ExpectNone(segmentLibrary, "_sendRequest", true)
-  segmentLibrary._queueMessage(data)
-  m.AssertEqual(segmentLibrary._messageQueue.count(), 4)
-
-  m.ExpectOnce(segmentLibrary, "_sendRequest", invalid, invalid, true)
-  segmentLibrary._queueMessage(data)
-  m.AssertEqual(segmentLibrary._messageQueue.count(), 0)
-
-  m.ExpectNone(segmentLibrary, "_sendRequest", true)
-  segmentLibrary._queueMessage(data)
-  m.AssertEqual(segmentLibrary._messageQueue.count(), 1)
+'@Test ensures the data gets passed to the integration manager 
+'@Params[{type: "identify", userId:"testUserId", traits: "testIdentifyTraits", options: "testIdentifyOptions"}]
+function SAT__identify_validData(data) as void
+  m.ExpectOnce(m.segmentAnalytics._integrationManager, "identify")
+  m.segmentAnalytics.identify(data.userId, data.traits, data.options)
 end function
 
 '+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-'@It tests queueMessage with valid data (3)
+'@It tests track call with valid data
 '+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-'@Test ensures we have the right number of items in the message queue and that we don't prematurely fire off a send request (3 in queue)
-'@Params[{ type: "group", userId: "testGroupUserId", groupId: "testGroupId", traits: "testGroupTraits", options: "testGroupOptions"}, {"writeKey": "test", "queueSize": 3}]
-function SAT__addToMessageQueue3(data, config) as void
-  segmentLibrary = SegmentAnalytics(config, {})
-
-  m.AssertEqual(segmentLibrary._queueSize, config.queueSize)
-
-  m.ExpectNone(segmentLibrary, "_sendRequest", true)
-  segmentLibrary._queueMessage(data)
-  m.AssertEqual(segmentLibrary._messageQueue.count(), 1)
-
-  m.ExpectNone(segmentLibrary, "_sendRequest", true)
-  segmentLibrary._queueMessage(data)
-  m.AssertEqual(segmentLibrary._messageQueue.count(), 2)
-
-  m.ExpectOnce(segmentLibrary, "_sendRequest", invalid, invalid, true)
-  segmentLibrary._queueMessage(data)
-  m.AssertEqual(segmentLibrary._messageQueue.count(), 0)
-
-  m.ExpectNone(segmentLibrary, "_sendRequest", true)
-  segmentLibrary._queueMessage(data)
-  m.AssertEqual(segmentLibrary._messageQueue.count(), 1)
-
-  m.ExpectNone(segmentLibrary, "_sendRequest", true)
-  segmentLibrary._queueMessage(data)
-  m.AssertEqual(segmentLibrary._messageQueue.count(), 2)
+'@Test ensures the data gets passed to the integration manager 
+'@Params[{type: "track", "event": "testEvent", properties: "testTrackProps", options: {"anonymousId": "testAnonId"}}]
+function SAT__track_validData(data) as void
+  m.ExpectOnce(m.segmentAnalytics._integrationManager, "track")
+  m.segmentAnalytics.track(data.event, data.properties, data.options)
 end function
 
 '+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-'@It tests queueMessage with invalid data
+'@It tests screen call with valid data
 '+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-'@Test ensures we don't add in invalid items in the queue
-'@Params[{type: "group", groupId: "testGroupId", traits: "testGroupTraits", options: "testGroupOptions"}]
-function SAT__invalidMessageQueue(data) as void
-  m.ExpectNone(m.segmentAnalytics, "_sendRequest", true)
-  m.segmentAnalytics._queueMessage(data)
-  m.AssertEqual(m.segmentAnalytics._messageQueue.count(), 0)
-
-  m.ExpectNone(m.segmentAnalytics, "_sendRequest", true)
-  m.segmentAnalytics._queueMessage(data)
-  m.AssertEqual(m.segmentAnalytics._messageQueue.count(), 0)
+'@Test ensures the data gets passed to the integration manager 
+'@Params[{type: "screen", name:"testScreenName", category: "testScreenCategory", properties: "testScreenProps", options: {"anonymousId": "testAnonId"}}]
+function SAT__screen_validData(data) as void
+  m.ExpectOnce(m.segmentAnalytics._integrationManager, "screen")
+  m.segmentAnalytics.screen(data.name, data.category, data.properties, data.options)
 end function
 
 '+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-'@It tests data too of a message to send (this test might take a long time to run)
+'@It tests group call with valid data
 '+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-'@Test ensures we don't add in really big data body in request
-'@Params[{type: "group", groupId: "testGroupId", "userId": "test" , traits: "testGroupTraits", options: "testGroupOptions", "filler":[]}]
-function SAT__invalidTooBigMessageQueue(data) as void
-  fillerObject = {"filler": "filler"}
-  for i = 0 to 32000
-    data.filler.push(fillerObject)
-  end for
-
-  m.ExpectNone(m.segmentAnalytics, "_sendRequest", true)
-  m.segmentAnalytics._queueMessage(data)
-  m.AssertEqual(m.segmentAnalytics._messageQueue.count(), 0)
+'@Test ensures the data gets passed to the integration manager 
+'@Params[{type: "group", userId:"testUserId", groupId: "testGroupId", traits: "testGroupTraits", options: "testGroupOptions"}]
+function SAT__group_validData(data) as void
+  m.ExpectOnce(m.segmentAnalytics._integrationManager, "group")
+  m.segmentAnalytics.group(data.userId, data.groupId, data.traits, data.options)
 end function
 
 '+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-'@It testing body data size check function
+'@It tests alias call with valid data
 '+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-'@Test ensure the data check passes
-'@Params[{"writeKey": "test"}, 95]
-'@Params[{"writeKeyRunning": "testRun"}, 105]
-function SAT__getDataBodySizeValid(data, expectedSize) as void
-  m.AssertEqual(m.segmentAnalytics._getDataBodySize(data), expectedSize)
+'@Test ensures the data gets passed to the integration manager 
+'@Params[{type: "alias", userId:"testUserId", options: "testAliasOptions"}]
+function SAT__alias_validData(data) as void
+  m.ExpectOnce(m.segmentAnalytics._integrationManager, "alias")
+  m.segmentAnalytics.alias(data.userId, data.options)
 end function
 
 '+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-'@It testing flush functionality
+'@It tests identify call with invalid data
 '+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-'@Test ensure the flush executes correctly
+'@Test ensures we don't pass invalid data to the integration manager
+'@Params[{type: "identify", userId:"", traits: "testIdentifyTraits", options: "testIdentifyOptions"}]
+function SAT__identify_invalidData(data) as void
+  m.ExpectNone(m.segmentAnalytics._integrationManager, "identify", true)
+  m.segmentAnalytics.identify(data.userId, data.traits, data.options)
+end function
+
+'+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+'@It tests track call with invalid data
+'+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+'@Test ensures we don't pass invalid data to the integration manager
+'@Params[{type: "track", userId:"", properties: "testTrackProps", options: "testTrackOptions"}]
+function SAT__track_invalidData(data) as void
+  m.ExpectNone(m.segmentAnalytics._integrationManager, "track", true)
+  m.segmentAnalytics.track(data.userId, data.properties, data.options)
+end function
+
+'+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+'@It tests screen call with invalid data
+'+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+'@Test ensures we don't pass invalid data to the integration manager
+'@Params[{type: "screen", userId:"", category: "testScreenCategory", properties: "testScreenProps", options: "testScreenOptions"}]
+function SAT__screen_invalidData(data) as void
+  m.ExpectNone(m.segmentAnalytics._integrationManager, "screen", true)
+  m.segmentAnalytics.screen(data.userId, data.category, data.properties, data.options)
+end function
+
+'+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+'@It tests group call with invalid data
+'+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+'@Test ensures we don't pass invalid data to the integration manager
+'@Params[{type: "group", userId:"", groupId: "testGroupId", traits: "testGroupTraits", options: "testGroupOptions"}]
+function SAT__group_invalidData(data) as void
+  m.ExpectNone(m.segmentAnalytics._integrationManager, "group", true)
+  m.segmentAnalytics.group(data.userId, data.groupId, data.traits, data.options)
+end function
+
+'+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+'@It tests alias call with invalid data
+'+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+'@Test ensures we don't pass invalid data to the integration manager
+'@Params[{type: "alias", userId:"", options: "testAliasOptions"}]
+function SAT__alias_invalidData(data) as void
+  m.ExpectNone(m.segmentAnalytics._integrationManager, "alias", true)
+  m.segmentAnalytics.alias(data.userId, data.options)
+end function
+
+'+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+'@It tests flush call
+'+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+'@Test ensures flush call gets passed to integration manager
 function SAT__flush() as void
+  m.ExpectOnce(m.segmentAnalytics._integrationManager, "flush")
   m.segmentAnalytics.flush()
 end function
 
 '+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-'@It testing checkRequestQueue retry functionality
+'@It tests handleRequestMessage call
 '+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-'@Test ensure the checkRequestQueue retries correctly
-function SAT__retryRequest_retry() as void
-  m.segmentAnalytics.checkRequestQueue(0)
+'@Test ensures handleRequestMessage call gets passed to integration manager
+function SAT__handleRequestMessage() as void
+  successMessage = {
+    responseCode: 200
+    getResponseCode: function()
+        return m.responseCode
+      end function
+    getSourceIdentity: function()
+        return 0
+      end function
+    }
+  m.ExpectOnce(m.segmentAnalytics._integrationManager, "handleRequestMessage", [successMessage, 0])
+  m.segmentAnalytics.handleRequestMessage(successMessage, 0)
 end function
 
 '+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-'@It testing checkRequestQueue clean functionality
+'@It tests checkRequestQueue call
 '+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-'@Test ensure the checkRequestQueue executes correctly
-function SAT__retryRequest_clean() as void
+'@Test ensures checkRequestQueue call gets passed to integration manager
+function SAT__checkRequestQueue() as void
+  m.ExpectOnce(m.segmentAnalytics._integrationManager, "checkRequestQueue", [0])
   m.segmentAnalytics.checkRequestQueue(0)
 end function
-

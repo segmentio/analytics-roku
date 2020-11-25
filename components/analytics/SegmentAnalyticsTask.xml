@@ -13,9 +13,27 @@
 
   </interface>
 
-  <!-- will need to be updated by app developers for the given app folder structure -->
-  <script type="text/brightscript" uri="pkg:/components/analytics/SegmentAnalyticsTask.brs" />
+  <!-- include any device mode integration factories, example:
+    {
+      "Adobe Analytics": SegmentAnalytics_AdobeAnalyticsFactory
+    }
+  -->     
+  <script type = "text/brightscript" >
+  
+    <![CDATA[
 
+      function use() as Object
+        return {}
+      end function
+
+    ]]>
+
+  </script>
+
+  <!-- replace with correct location if needed -->
+  <script type="text/brightscript" uri="pkg:/components/analytics/SegmentAnalyticsTask.brs" />
+  <!-- replace with correct location if needed -->
   <script type="text/brightscript" uri="pkg:/source/analytics/SegmentAnalytics.brs" />
 
+  <!-- include any device mode integrations scripts  -->
 </component>
