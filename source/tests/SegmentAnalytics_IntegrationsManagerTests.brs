@@ -7,7 +7,7 @@ end function
 
 '@BeforeEach
 function SA_IMT_BeforeEach()
-  m.testFactory = function(settings, analytics, port) 
+  m.testFactory = function(settings, analytic) 
     return {
       key: "test"
       identify: function(data)
@@ -28,20 +28,17 @@ function SA_IMT_BeforeEach()
       flush: function()
           return true
         end function
-      checkRequestQueue: function(data, options)
-        return true
-      end function
-      handleRequestMessage: function(message as Object, currentTime)
-        return true
-      end function
+      processMessages: function()
+          return true
+        end function
     }
   end function
-  m.testEmptyFactory = function(settings, analytics, port) 
+  m.testEmptyFactory = function(settings, analytics) 
     return {
       key: "testEmpty"
     }
   end function
-  m.testExceptionFactory = function(settings, analytics, port) 
+  m.testExceptionFactory = function(settings, analytics) 
     return {
       key: "testException"
       exception: function(arg1 = invalid, arg2 = invalid)
@@ -53,8 +50,7 @@ function SA_IMT_BeforeEach()
       group: m.exception
       alias: m.exception
       flush: m.exception
-      checkRequestQueue: m.exception
-      handleRequestMessage: m.exception
+      processMessages: m.exception
     }  
   end function
 
@@ -73,10 +69,8 @@ function SA_IMT_BeforeEach()
       }
     }
   }
-  m.port = {}
-
-  m.segmentAnalytics = SegmentAnalytics(m.config, m.port)
-  m.integrationManager = _SegmentAnalytics_IntegrationsManager(m.config, m.segmentAnalytics, m.port)
+  m.segmentAnalytics = SegmentAnalytics(m.config)
+  m.integrationManager = _SegmentAnalytics_IntegrationsManager(m.config, m.segmentAnalytics)
 
   for each integration in m.integrationManager._integrations
     if integration.key = "test"
@@ -105,7 +99,7 @@ end function
 '@Params[{"writeKey": "test", defaultSettings: {}},{"count":1, "integrations":["Segment.io"]}]
 '@Params[{"writeKey": "test", defaultSettings: {"integrations":{Test: {}}}},{"count":2, "integrations":["Test", "Segment.io"]}]
 function SA_IMT__createIntegrations(config, expected) as void
-  factory = function(settings, analytics, port) 
+  factory = function(settings, analytics) 
     return {
       key: "Test"
     }
@@ -114,7 +108,7 @@ function SA_IMT__createIntegrations(config, expected) as void
     config.factories = { Test: factory }
   end if
 
-  segmentLibrary = SegmentAnalytics(config, {})
+  segmentLibrary = SegmentAnalytics(config)
   integrationManager = segmentLibrary._integrationManager
   
   m.AssertEqual(integrationManager._integrations.count(), expected.count)
@@ -150,7 +144,7 @@ function SA_IMT__createIntegrations_invalidFactory(config, setValid, expected) a
     config.factories[integration] = factory
   end for
  
-  segmentLibrary = SegmentAnalytics(config, {})
+  segmentLibrary = SegmentAnalytics(config)
   integrationManager = segmentLibrary._integrationManager
   
   m.AssertEqual(integrationManager._integrations.count(), expected)
@@ -179,7 +173,7 @@ function SA_IMT__createIntegrations_invalidFactoryParameters(config, setValid, e
     config.factories[integration] = factory
   end for
  
-  segmentLibrary = SegmentAnalytics(config, {})
+  segmentLibrary = SegmentAnalytics(config)
   integrationManager = segmentLibrary._integrationManager
   
   m.AssertEqual(integrationManager._integrations.count(), expected)
@@ -193,9 +187,9 @@ end function
 '@Params[{"name": "unknown", "data": null },{"segmentIntegration": false, "testIntegrations": false}]
 '@Params[{"name": "unknown", "data": {}},{"segmentIntegration": false, "testIntegrations": false}]
 '@Params[{"name": "unknown", "data": {"integrations": { "Test": true }}},{"segmentIntegration": false, "testIntegrations": false}]
-'@Params[{"name": "checkRequestQueue", "data": null},{"segmentIntegration": true, "testIntegrations": false}]
-'@Params[{"name": "checkRequestQueue", "data": {"integrations": { "Test": true }}},{"segmentIntegration": true, "testIntegrations": false}]
-'@Params[{"name": "checkRequestQueue", "data": {"integrations": { "Segment.io": false }}},{"segmentIntegration": true, "testIntegrations": false}]
+'@Params[{"name": "processMessages", "data": null},{"segmentIntegration": true, "testIntegrations": false}]
+'@Params[{"name": "processMessages", "data": {"integrations": { "Test": true }}},{"segmentIntegration": true, "testIntegrations": false}]
+'@Params[{"name": "processMessages", "data": {"integrations": { "Segment.io": false }}},{"segmentIntegration": true, "testIntegrations": false}]
 '@Params[{"name": "identify", "data": null},{"segmentIntegration": true, "testIntegrations": true}]
 '@Params[{"name": "identify", "data": {}},{"segmentIntegration": true, "testIntegrations": false}]
 '@Params[{"name": "identify", "data": {"integrations": {}}},{"segmentIntegration": true, "testIntegrations": false}]
@@ -670,95 +664,39 @@ function SA_IMT__flush_testExceptionIntegration() as void
 end function
 
 '+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-'@It test Segment.io integration handleRequestMessage function
+'@It test Segment.io integration processMessages function
 '+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-'@Test ensure that handleRequestMessage is always invoked for the Segment.io integration
-function SA_IMT__handleRequestMessage_segmentIntegrations() as void
-  successMessage = {
-    responseCode: 200
-    getResponseCode: function()
-        return m.responseCode
-      end function
-    getSourceIdentity: function()
-        return 0
-      end function
-    }
-  m.ExpectOnce(m.segmentIntegration, "handleRequestMessage", [successMessage, 0])
-  m.integrationManager.handleRequestMessage(successMessage, 0)
+'@Test ensure that processMessages is always invoked for the Segment.io integration
+function SA_IMT__processMessages_segmentIntegrations() as void
+  m.ExpectOnce(m.segmentIntegration, "processMessages")
+  m.integrationManager.processMessages()
 end function
 
 '+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-'@It test test integration handleRequestMessage function
+'@It test test integration processMessages function
 '+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-'@Test ensure that handleRequestMessage is always invoked for the test integration, unless missing
-function SA_IMT__handleRequestMessage_testIntegrations() as void
-  successMessage = {
-    responseCode: 200
-    getResponseCode: function()
-        return m.responseCode
-      end function
-    getSourceIdentity: function()
-        return 0
-      end function
-    }
-  m.ExpectOnce(m.testIntegration, "handleRequestMessage", [successMessage, 0])
-  m.integrationManager.handleRequestMessage(successMessage, 0)
+'@Test ensure that processMessages is always invoked for the test integration, unless missing
+function SA_IMT__processMessages_testIntegrations() as void
+  m.ExpectOnce(m.testIntegration, "processMessages")
+  m.integrationManager.processMessages()
 end function
 
 '+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-'@It test testEmpty integration handleRequestMessage function
+'@It test testEmpty integration processMessages function
 '+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-'@Test ensure that a non-existent handleRequestMessage function gets handled gracefully
+'@Test ensure that a non-existent processMessages function gets handled gracefully
 function SA_IMT__handleRequestMessage_testEmptyIntegration() as void
-  m.integrationManager.handleRequestMessage({}, 0)
+  m.integrationManager.processMessages()
 end function
 
 '+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-'@It test testException integration handleRequestMessage function
+'@It test testException integration processMessages function
 '+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-'@Test ensure that an exception throwing handleRequestMessage function gets handled gracefully
-function SA_IMT__handleRequestMessage_testExceptionIntegration() as void
-  m.integrationManager.handleRequestMessage({}, 0)
-end function
-
-'+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-'@It test Segment.io integration checkRequestQueue function
-'+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-
-'@Test ensure that checkRequestQueue is always invoked for the Segment.io integration
-function SA_IMT__checkRequestQueue_segmentIntegrations() as void
-  m.ExpectOnce(m.segmentIntegration, "checkRequestQueue")
-  m.integrationManager.checkRequestQueue(0)
-end function
-
-'+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-'@It test test integration checkRequestQueue function
-'+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-
-'@Test ensure that checkRequestQueue is always invoked for the test integration, unless missing
-function SA_IMT__checkRequestQueue_testIntegrations() as void
-  m.ExpectOnce(m.testIntegration, "checkRequestQueue")
-  m.integrationManager.checkRequestQueue(0)
-end function
-
-'+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-'@It test testEmpty integration checkRequestQueue function
-'+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-
-'@Test ensure that a non-existent checkRequestQueue function gets handled gracefully
-function SA_IMT__checkRequestQueue_testEmptyIntegration() as void
-  m.integrationManager.checkRequestQueue(0)
-end function
-
-'+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-'@It test testException integration checkRequestQueue function
-'+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-
-'@Test ensure that an exception throwing checkRequestQueue function gets handled gracefully
-function SA_IMT__checkRequestQueue_testExceptionIntegration() as void
-  m.integrationManager.checkRequestQueue(0)
+'@Test ensure that an exception throwing processMessages function gets handled gracefully
+function SA_IMT__processMessages_testExceptionIntegration() as void
+  m.integrationManager.processMessages()
 end function

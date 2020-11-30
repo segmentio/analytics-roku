@@ -19,7 +19,7 @@ function SA_SIT_BeforeEach()
   m.log = _SegmentAnalytics_Logger()
   m.bundledIntegrations = []
   
-  m.segmentIntegration = _SegmentAnalytics_SegmentIntegration(m.settings, m.bundledIntegrations, m.version, m.log, m.port)
+  m.segmentIntegration = _SegmentAnalytics_SegmentIntegration(m.settings, m.bundledIntegrations, m.version, m.log)
 end function
   
 '+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -53,7 +53,7 @@ end function
 '@Params[{"writeKey":"test", "queueSize":1, "retryLimit":1, "requestPoolSize":1, "apiHost":"https://api.segment.io"}, [], {"writeKey": "test", "queueSize": 1, "retryLimit": 1, "requestPoolSize": 1, "apiHost":"https://api.segment.io/v1/batch"}]
 '@Params[{"writeKey":"test1", "queueSize":2, "retryLimit":2, "requestPoolSize":2, "apiHost":"https://api2.segment.io"}, ["Test"], {"writeKey":"test1", "queueSize":2, "retryLimit":2, "requestPoolSize":2, "apiHost":"https://api2.segment.io/v1/batch"}]
 function SA_SIT__constructor_basic_success_otherValues(settings, bundledIntegrations, expectedConfig) as void
-  segmentIntegration = _SegmentAnalytics_SegmentIntegration(settings, bundledIntegrations, m.version, m.log, m.port)
+  segmentIntegration = _SegmentAnalytics_SegmentIntegration(settings, bundledIntegrations, m.version, m.log)
 
   m.AssertEqual(segmentIntegration.key, "Segment.io")
   m.AssertEqual(segmentIntegration._writeKey, expectedConfig.writeKey)
@@ -136,6 +136,133 @@ function SA_SIT__alias(testObj) as void
 end function
 
 '+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+'@It testing flush functionality
+'+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+'@Test ensure the flush executes correctly
+function SA_SIT__flush() as void
+  m.segmentIntegration.flush()
+end function
+
+'+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+'@It test successful handleRequestMessage call
+'+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+'@Test handleRequestMessage with successful object
+'@Params[200]
+'@Params[403]
+'@Params[404]
+function SA_SIT__handleRequestMessage_success(responseCode) as void
+  'Assigning responseCode as member variable to be accessed in own function definition for test
+  successMessage = {
+    responseCode: responseCode
+    getResponseCode: function()
+        return m.responseCode
+      end function
+    getSourceIdentity: function()
+        return 0
+      end function
+    }
+  handleMessage = sub(result as Object)
+    end sub
+
+  m.segmentIntegration._serverRequestsById.addReplace("0", {"retryCount": 0, "handleMessage": handleMessage})
+  m.ExpectNone(m.segmentIntegration, "_setRequestAsRetry", true)
+  m.segmentIntegration._handleRequestMessage(successMessage, 0)
+end function
+
+'+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+'@It test failed handleRequestMessage call
+'+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+'@Test handleRequestMessage with failed object
+'@Params[429]
+'@Params[500]
+'@Params[501]
+function SA_SIT__handleRequestMessage_fail(responseCode as Integer) as void
+  'Assigning responseCode as member variable to be accessed in own function definition for test
+  failedMessage = {
+    responseCode: responseCode
+    getResponseCode: function() as Integer
+       return m.responseCode
+     end function
+    getSourceIdentity: function()
+        return 0
+      end function
+  }
+  handleMessage = sub(result as Object)
+       end sub
+  m.segmentIntegration._serverRequestsById.addReplace("0", {retryCount:0, "handleMessage": handleMessage})
+  m.ExpectOnce(m.segmentIntegration, "_setRequestAsRetry")
+  m.segmentIntegration._handleRequestMessage(failedMessage, 0)
+end function
+
+'+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+'@It testing checkRequestQueue retry functionality
+'+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+'@Test ensure the checkRequestQueue retries correctly
+function SA_SIT__retryRequest_retry() as void
+  m.segmentIntegration._checkRequestQueue(0)
+end function
+
+'+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+'@It testing checkRequestQueue clean functionality
+'+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+'@Test ensure the checkRequestQueue executes correctly
+function SA_SIT__retryRequest_clean() as void
+  m.segmentIntegration._checkRequestQueue(0)
+end function
+
+'+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+'@It testing processMessages invoking handleRequestMessage
+'+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+'@Test ensure the processMessages invokes handleRequestMessage with response
+function SA_SIT__processMessages_handleRequestMessage() as void
+  successMessage = {
+    _type: "roUrlEvent"
+    responseCode: 200
+    getResponseCode: function()
+        return m.responseCode
+      end function
+    getSourceIdentity: function()
+        return 0
+      end function
+    }
+
+  m.segmentIntegration._port.postMessage(successMessage)
+  m.ExpectOnce(m.segmentIntegration, "_handleRequestMessage", [successMessage, 0])
+  m.segmentIntegration.processMessages()
+end function
+
+'+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+'@It testing processMessages invoking checkRequestQueue
+'+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+'@Test ensure the processMessages invokes checkRequestQueue when timer has not reached nextQueueFlush time
+function SA_SIT__processMessages_checkRequestQueue() as void
+  m.ExpectOnce(m.segmentIntegration, "_checkRequestQueue", [m.segmentIntegration._clock.totalSeconds()])
+  m.segmentIntegration.processMessages()
+end function
+
+'+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+'@It testing processMessages invoking flush
+'+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+'@Test ensure the processMessages invokes flush when timer has reached nextQueueFlush time
+function SA_SIT__processMessages_flush() as void
+  ' clock time is at 0
+  m.segmentIntegration._nextQueueFlush = -1
+  m.ExpectOnce(m.segmentIntegration, "flush")
+  m.segmentIntegration.processMessages()
+
+  ' check if nextQueueFlush was updated from -1 to queueFlushTime
+  m.AssertEqual(m.segmentIntegration._nextQueueFlush, m.segmentIntegration._queueFlushTime)
+end function
+
+'+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 '@It tests queueMessage with valid data (5)
 '+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
@@ -144,7 +271,7 @@ end function
 function SA_SIT__addToMessageQueue5(data) as void
   settings = m.settings
   settings.queueSize = 5
-  segmentIntegration = _SegmentAnalytics_SegmentIntegration(settings, m.bundledIntegrations, m.version, m.log, m.port)
+  segmentIntegration = _SegmentAnalytics_SegmentIntegration(settings, m.bundledIntegrations, m.version, m.log)
 
   m.AssertEqual(segmentIntegration._queueSize, settings.queueSize)
 
@@ -183,7 +310,7 @@ end function
 function SA_SIT__addToMessageQueue3(data, config) as void
   settings = m.settings
   settings.queueSize = 3
-  segmentIntegration = _SegmentAnalytics_SegmentIntegration(settings, m.bundledIntegrations, m.version, m.log, m.port)
+  segmentIntegration = _SegmentAnalytics_SegmentIntegration(settings, m.bundledIntegrations, m.version, m.log)
 
   m.AssertEqual(segmentIntegration._queueSize, settings.queueSize)
 
@@ -223,87 +350,6 @@ function SA_SIT__invalidTooBigMessageQueue(data) as void
   m.ExpectNone(m.segmentIntegration, "_sendRequest", true)
   m.segmentIntegration.group(data)
   m.AssertEqual(m.segmentIntegration._messageQueue.count(), 0)
-end function
-
-'+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-'@It testing flush functionality
-'+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-
-'@Test ensure the flush executes correctly
-function SA_SIT__flush() as void
-  m.segmentIntegration.flush()
-end function
-
-'+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-'@It test successful handleRequestMessage call
-'+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-
-'@Test handleRequestMessage with successful object
-'@Params[200]
-'@Params[403]
-'@Params[404]
-function SA_SIT__handleRequestMessage_success(responseCode) as void
-  'Assigning responseCode as member variable to be accessed in own function definition for test
-  successMessage = {
-    responseCode: responseCode
-    getResponseCode: function()
-        return m.responseCode
-      end function
-    getSourceIdentity: function()
-        return 0
-      end function
-    }
-  handleMessage = sub(result as Object)
-    end sub
-
-  m.segmentIntegration._serverRequestsById.addReplace("0", {"retryCount": 0, "handleMessage": handleMessage})
-  m.ExpectNone(m.segmentIntegration, "_setRequestAsRetry", true)
-  m.segmentIntegration.handleRequestMessage(successMessage, 0)
-end function
-
-'+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-'@It test failed handleRequestMessage call
-'+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-
-'@Test handleRequestMessage with failed object
-'@Params[429]
-'@Params[500]
-'@Params[501]
-function SA_SIT__handleRequestMessage_fail(responseCode as Integer) as void
-
-  'Assigning responseCode as member variable to be accessed in own function definition for test
-  failedMessage = {
-    responseCode: responseCode
-    getResponseCode: function() as Integer
-       return m.responseCode
-     end function
-    getSourceIdentity: function()
-        return 0
-      end function
-  }
-  handleMessage = sub(result as Object)
-       end sub
-  m.segmentIntegration._serverRequestsById.addReplace("0", {retryCount:0, "handleMessage": handleMessage})
-  m.ExpectOnce(m.segmentIntegration, "_setRequestAsRetry")
-  m.segmentIntegration.handleRequestMessage(failedMessage, 0)
-end function
-
-'+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-'@It testing checkRequestQueue retry functionality
-'+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-
-'@Test ensure the checkRequestQueue retries correctly
-function SA_SIT__retryRequest_retry() as void
-  m.segmentIntegration.checkRequestQueue(0)
-end function
-
-'+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-'@It testing checkRequestQueue clean functionality
-'+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-
-'@Test ensure the checkRequestQueue executes correctly
-function SA_SIT__retryRequest_clean() as void
-  m.segmentIntegration.checkRequestQueue(0)
 end function
 
 '+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++

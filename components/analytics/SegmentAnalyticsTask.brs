@@ -14,11 +14,10 @@ sub setup()
   config = m.top.config
   'bs:disable-next-line
   config.factories = use()
-  m.service = SegmentAnalytics(config, m.port)
+  m.service = SegmentAnalytics(config)
 
   m.top.observeField("event", m.port)
   
-  m.queueFlushTime = 30 ' This value represents seconds default to 30 seconds
   m.taskCheckInterval = 500 ' Represents the milliseconds the task should run it's event loop
 end sub
 
@@ -27,37 +26,23 @@ sub startEventLoop()
     return
   end if
 
-  clock = CreateObject("roTimespan")
-  clock.mark()
-  nextQueueFlush = clock.totalSeconds() + m.queueFlushTime
-
   if m.top.event <> invalid then
     handleEvent(m.top.event)
   end if
 
   while (true)
     message = wait(m.taskCheckInterval, m.port)
-    messageType = type(message)
-
-    if messageType = "roSGNodeEvent" then
-      field = message.getField()
-
-      if field = "event" then
-        handleEvent(message.getData())
-        nextQueueFlush = clock.totalSeconds() + m.queueFlushTime
-      end if
-    else if messageType = "roUrlEvent" then
-      m.service.handleRequestMessage(message, clock.totalSeconds())
-      nextQueueFlush = clock.totalSeconds() + m.queueFlushTime
-    end if
-
-    if clock.totalSeconds() > nextQueueFlush then
-      m.service.flush()
-      nextQueueFlush = clock.TotalMilliseconds() + m.queueFlushTime
+    if message = invalid then
+      m.service.processMessages()
     else
-      m.service.checkRequestQueue(clock.totalSeconds())
-    end if
-
+      messageType = type(message)
+      if messageType = "roSGNodeEvent" then
+        field = message.getField()
+        if field = "event" then
+          handleEvent(message.getData())
+        end if
+      end if
+    end if 
   end while
 end sub
 

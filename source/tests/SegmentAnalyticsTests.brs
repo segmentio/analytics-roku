@@ -11,7 +11,7 @@ function SAT_BeforeEach()
     writeKey: "test"
   }
   m.port = {}
-  m.segmentAnalytics = SegmentAnalytics(m.config, m.port)
+  m.segmentAnalytics = SegmentAnalytics(m.config)
 end function
 
 '+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -33,7 +33,7 @@ end function
 '@Params[{"writeKey":"test"}, {"writeKey":"test", "queueSize":1, "retryLimit":1, "debug":false, "requestpoolSize":1, "apiHost":"https://api.segment.io", "defaultSettings": {"integrations":{}}}]
 '@Params[{"writeKey":"test1", "queueSize":2, "retryLimit":2, "debug":true, "requestpoolSize":2, "apiHost":"https://api2.segment.io", "integrations":{"testIntegration":{apiKey:}}}, {"writeKey":"test1", "queueSize":2, "retryLimit":2, "debug":true, "requestpoolSize":2, "apiHost":"https://api2.segment.io", "defaultSettings": {"integrations":{"testIntegration":{apiKey:}}}}]
 function SAT__constructor_basic_success_otherValues(config, expectedConfig) as void
-  segmentLibrary = SegmentAnalytics(config, {})
+  segmentLibrary = SegmentAnalytics(config)
   'Segment.io integration factory should be set by default
   m.AssertEqual(segmentLibrary.config.factories["Segment.io"], _SegmentAnalytics_SegmentIntegrationFactory)
   segmentLibrary.config.delete("factories")
@@ -55,7 +55,7 @@ end function
 '@Params[{"retryLimit":1}]
 '@Params[{"queueSize":1, "retryLimit":1}]
 function SAT__constructor_fail(config) as void
-  segmentLibrary = SegmentAnalytics(config, {})
+  segmentLibrary = SegmentAnalytics(config)
   m.AssertInvalid(segmentLibrary)
 end function
 
@@ -279,30 +279,11 @@ function SAT__flush() as void
 end function
 
 '+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-'@It tests handleRequestMessage call
+'@It tests processMessages call
 '+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-'@Test ensures handleRequestMessage call gets passed to integration manager
-function SAT__handleRequestMessage() as void
-  successMessage = {
-    responseCode: 200
-    getResponseCode: function()
-        return m.responseCode
-      end function
-    getSourceIdentity: function()
-        return 0
-      end function
-    }
-  m.ExpectOnce(m.segmentAnalytics._integrationManager, "handleRequestMessage", [successMessage, 0])
-  m.segmentAnalytics.handleRequestMessage(successMessage, 0)
-end function
-
-'+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-'@It tests checkRequestQueue call
-'+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-
-'@Test ensures checkRequestQueue call gets passed to integration manager
-function SAT__checkRequestQueue() as void
-  m.ExpectOnce(m.segmentAnalytics._integrationManager, "checkRequestQueue", [0])
-  m.segmentAnalytics.checkRequestQueue(0)
+'@Test ensures processMessages call gets passed to integration manager
+function SAT__processMessages() as void
+  m.ExpectOnce(m.segmentAnalytics._integrationManager, "processMessages")
+  m.segmentAnalytics.processMessages()
 end function

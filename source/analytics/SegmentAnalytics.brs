@@ -10,8 +10,7 @@
 ' factories associative array that contains factory to create each integration
 ' defaultSettings associative array which in can include the following:
 ' integrations associative array that contains configuration for each integration
-' @port message port
-function SegmentAnalytics(config as Object, port as Object) as Object
+function SegmentAnalytics(config as Object) as Object
   log = _SegmentAnalytics_Logger()
 
   if _SegmentAnalytics_checkInvalidConfig(config, log) then
@@ -30,8 +29,7 @@ function SegmentAnalytics(config as Object, port as Object) as Object
     group: _SegmentAnalytics_group
     alias: _SegmentAnalytics_alias
     flush: _SegmentAnalytics_flush
-    handleRequestMessage: _SegmentAnalytics_handleRequestMessage
-    checkRequestQueue: _SegmentAnalytics_checkRequestQueue
+    processMessages: _SegmentAnalytics_processMessages
 
     'public variables
     version: "2.0.0"
@@ -45,7 +43,7 @@ function SegmentAnalytics(config as Object, port as Object) as Object
     _configBundledIntegrations: _SegmentAnalytics_configBundledIntegrations
   }
   this._configBundledIntegrations()
-  this._integrationManager = _SegmentAnalytics_IntegrationsManager(this.config, this, port)
+  this._integrationManager = _SegmentAnalytics_IntegrationsManager(this.config, this)
 
   return this
 end function
@@ -176,16 +174,12 @@ sub _SegmentAnalytics_alias(userId as String, options = {} as Object)
   m._integrationManager.alias(data)
 end sub
 
+sub _SegmentAnalytics_processMessages()
+  m._integrationManager.processMessages()
+end sub
+
 sub _SegmentAnalytics_flush()
   m._integrationManager.flush()
-end sub
-
-sub _SegmentAnalytics_handleRequestMessage(message as Object, currentTime as Integer)
-  m._integrationManager.handleRequestMessage(message, currentTime)
-end sub
-
-sub _SegmentAnalytics_checkRequestQueue(currentTime as Integer)
-    m._integrationManager.checkRequestQueue(currentTime)
 end sub
 
 'Validates required configuration fields
@@ -346,8 +340,7 @@ end sub
 ' defaultSettings associative array which in can include the following:
 ' integrations associative array that contains configuration for each integration
 ' @analytics SegmentAnalytics instance
-' @port message port
-function _SegmentAnalytics_IntegrationsManager(config as Object, analytics as Object, port as Object) as Object
+function _SegmentAnalytics_IntegrationsManager(config as Object, analytics as Object) as Object
   this =  {
     'public functions
     identify: _SegmentAnalytics_IntegrationsManager_identify
@@ -356,8 +349,7 @@ function _SegmentAnalytics_IntegrationsManager(config as Object, analytics as Ob
     group: _SegmentAnalytics_IntegrationsManager_group
     alias: _SegmentAnalytics_IntegrationsManager_alias
     flush: _SegmentAnalytics_IntegrationsManager_flush
-    handleRequestMessage: _SegmentAnalytics_IntegrationsManager_handleRequestMessage
-    checkRequestQueue: _SegmentAnalytics_IntegrationsManager_checkRequestQueue
+    processMessages: _SegmentAnalytics_IntegrationsManager_processMessages
 
     'private functions
     _callIntegrations: _SegmentAnalytics_IntegrationsManager_callIntegrations
@@ -371,7 +363,7 @@ function _SegmentAnalytics_IntegrationsManager(config as Object, analytics as Ob
   factories["Segment.io"] = _SegmentAnalytics_SegmentIntegrationFactory
   config.factories = factories
 
-  this._integrations = this._createIntegrations(config, analytics, port)
+  this._integrations = this._createIntegrations(config, analytics)
 
   return this
 end function
@@ -401,31 +393,16 @@ sub _SegmentAnalytics_IntegrationsManager_flush()
 end sub
 
 'Handle all responses and forward it to each enabled integration
-sub _SegmentAnalytics_IntegrationsManager_handleRequestMessage(message as Object, currentTime as Integer)
+sub _SegmentAnalytics_IntegrationsManager_processMessages()
   for each integration in m._integrations
-    if m._isIntegrationEnabled(integration, "handleRequestMessage") then
+    if m._isIntegrationEnabled(integration, "processMessages") then
       try
-        integration.handleRequestMessage(message, currentTime)
+        integration.processMessages()
       catch e
-        m._log.error("Exception calling integration " + integration.key + " for handleRequestMessage. Exception: " + e.message)
+        m._log.error("Exception calling integration " + integration.key + " for processMessages. Exception: " + e.message)
       end try
     else
-      m._log.debug("Not sending call to " + integration.key + " because it does not respond to handleRequestMessage")
-    end if
-  end for 
-end sub
-
-'Checks all enabled integrations for failed requests that need to be resent
-sub _SegmentAnalytics_IntegrationsManager_checkRequestQueue(currentTime as Integer)
-  for each integration in m._integrations
-    if m._isIntegrationEnabled(integration, "checkRequestQueue") then
-      try
-        integration.checkRequestQueue(currentTime)
-      catch e
-        m._log.error("Exception calling integration " + integration.key + " for checkRequestQueue. Exception: " + e.message)
-      end try  
-    else
-      m._log.debug("Not sending call to " + integration.key + " because it does not respond to checkRequestQueue")
+      m._log.debug("Not sending call to " + integration.key + " because it does not respond to processMessages")
     end if
   end for 
 end sub
@@ -466,14 +443,14 @@ end function
 
 'Creates integrations using factories defined in SegmentAnalyticsTask.xml and references any settings from config.defaultSettings.integrations[factory key]
 'Note: the Segment.io integration is created by default
-function _SegmentAnalytics_IntegrationsManager_createIntegrations(config as Object, analytics as Object, port as Object) as Object
+function _SegmentAnalytics_IntegrationsManager_createIntegrations(config as Object, analytics as Object) as Object
   integrations = []
   for each name in config.factories.keys()
     settings = config.defaultSettings.integrations[name]
     factory = config.factories[name]
 
     try
-      integrations.push(factory(settings, analytics, port))
+      integrations.push(factory(settings, analytics))
     catch e
       m._log.error("Exception calling device mode integration " + name + " factory. Exception: " + e.message)
     end try
@@ -489,14 +466,13 @@ end function
 ' Required params:
 ' @setting integration settings
 ' @analytics SegmentAnalytics instance
-' @port message port
-function _SegmentAnalytics_SegmentIntegrationFactory(settings as Object, analytics as Object, port as Object) as Object
+function _SegmentAnalytics_SegmentIntegrationFactory(settings as Object, analytics as Object) as Object
   bundledIntegrations = []
   for each integration in analytics.config.factories.keys()
     bundledIntegrations.push(integration)
   end for
 
-  return _SegmentAnalytics_SegmentIntegration(analytics.config, bundledIntegrations, analytics.version, analytics.log, port)
+  return _SegmentAnalytics_SegmentIntegration(analytics.config, bundledIntegrations, analytics.version, analytics.log)
 end function
 
 ' Constructor
@@ -513,9 +489,8 @@ end function
 ' @bundledIntegrations name of other included integrations
 ' @version library version
 ' @log message logger
-' @port message port
-function _SegmentAnalytics_SegmentIntegration(settings as Object, bundledIntegrations as Object, version as String, log as Object, port as Object) as Object
-  return {
+function _SegmentAnalytics_SegmentIntegration(settings as Object, bundledIntegrations as Object, version as String, log as Object) as Object
+  this = {
     'public functions
     identify: _SegmentAnalytics_SegmentIntegration_queueMessage
     track: _SegmentAnalytics_SegmentIntegration_queueMessage
@@ -523,13 +498,14 @@ function _SegmentAnalytics_SegmentIntegration(settings as Object, bundledIntegra
     group: _SegmentAnalytics_SegmentIntegration_queueMessage
     alias: _SegmentAnalytics_SegmentIntegration_queueMessage
     flush: _SegmentAnalytics_SegmentIntegration_flush
-    handleRequestMessage: _SegmentAnalytics_SegmentIntegration_handleRequestMessage
-    checkRequestQueue: _SegmentAnalytics_SegmentIntegration_checkRequestQueue
+    processMessages: _SegmentAnalytics_SegmentIntegration_processMessages
 
     'public variables
     key: "Segment.io"
 
     'private functions
+    _handleRequestMessage: _SegmentAnalytics_SegmentIntegration_handleRequestMessage
+    _checkRequestQueue: _SegmentAnalytics_SegmentIntegration_checkRequestQueue
     _createRequest: _SegmentAnalytics_SegmentIntegration_createRequest
     _createPostOptions: _SegmentAnalytics_SegmentIntegration_createPostOptions
     _sendRequest: _SegmentAnalytics_SegmentIntegration_sendRequest
@@ -548,7 +524,9 @@ function _SegmentAnalytics_SegmentIntegration(settings as Object, bundledIntegra
     _apiUrl: settings.apiHost + "/v1/batch"
     _bundledIntegrations: bundledIntegrations
     _log: log
-    _port: port
+    _port: createObject("roMessagePort")
+    _clock: createObject("roTimespan")
+    _queueFlushTime: 30
     _device: createObject("roDeviceInfo")
     _libraryName: "analytics-roku"
     _libraryVersion: version
@@ -559,7 +537,26 @@ function _SegmentAnalytics_SegmentIntegration(settings as Object, bundledIntegra
     _inProgressId: invalid
     _requestPool: []
   }
+  this._clock.mark()
+  this._nextQueueFlush = this._queueFlushTime
+
+  return this
 end function
+
+sub _SegmentAnalytics_SegmentIntegration_processMessages()
+  message = wait(1, m._port)
+  messageType = type(message)
+
+  if messageType = "roUrlEvent" or (message <> invalid and message._type = "roUrlEvent") then
+    m._handleRequestMessage(message, m._clock.totalSeconds())
+  end if
+  if m._clock.totalSeconds() > m._nextQueueFlush then
+    m.flush()
+    m._nextQueueFlush = m._clock.totalSeconds() + m._queueFlushTime
+  else
+    m._checkRequestQueue(m._clock.totalSeconds())
+  end if
+end sub
 
 'Defines which integrations will be used and either pushes it to the message queue or sends out a request
 sub _SegmentAnalytics_SegmentIntegration_queueMessage(data)
