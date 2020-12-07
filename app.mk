@@ -83,7 +83,7 @@ home:
 
 $(APPNAME): manifest
 	@echo "*** Connecting rooibosC tests ***"
-	rooibosC p source/tests source; \
+	rooibosC -c source/tests/testConfig.json; \
 
 	@echo "*** Creating $(APPNAME).zip ***"
 

@@ -1,9 +1,11 @@
 {
-	"logLevel": 1,
-	"testsDirectory": "pkg:/source/Tests",
-	"testFilePrefix": "Test__",
-	"failFast": false,
-	"showOnlyFailures": false,
-	"maxLinesWithoutSuiteDirective": 30,
-	"supportLegacyTests": false
+  "logLevel": 1,
+  "outputPath": "./source/tests",
+  "projectPath": "./",
+  "testsDirectory": "pkg:/source/Tests",
+  "testFilePrefix": "Test__",
+  "failFast": false,
+  "showOnlyFailures": false,
+  "maxLinesWithoutSuiteDirective": 30,
+  "supportLegacyTests": false
 }

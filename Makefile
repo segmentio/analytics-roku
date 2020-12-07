@@ -12,7 +12,7 @@
 ##########################################################################
 
 check:
-	brsc --project .build/brsconfig.json
+	bsc --project ./.build/brsconfig.json
 
 library:
 	echo "Building analytics library package"

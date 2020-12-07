@@ -43,6 +43,8 @@ node_modules/
 /source/tests/rooibosFunctionMap.brs
 /source/buildinfo.brs
 /SegmentAnalytics/
+/samples/components/analytics
+/samples/source/analytics
 
 env
 uatest-results.txtc

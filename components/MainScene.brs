@@ -42,7 +42,3 @@ sub onItemSelected()
     m.library.alias("testNewId", {"previousId": "testPrevId"})
   end if
 end sub
-
-
-
-
