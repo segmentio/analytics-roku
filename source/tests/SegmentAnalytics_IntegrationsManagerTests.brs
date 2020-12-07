@@ -96,19 +96,20 @@ end function
 '+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 '@Test ensure Segment.io integration is created by default plus other integrations 
-'@Params[{"writeKey": "test", defaultSettings: {}},{"count":1, "integrations":["Segment.io"]}]
-'@Params[{"writeKey": "test", defaultSettings: {"integrations":{Test: {}}}},{"count":2, "integrations":["Test", "Segment.io"]}]
+'@Params[{"writeKey": "test", "defaultSettings": {}},{"count":1, "integrations":["Segment.io"]}]
+'@Params[{"writeKey": "test", "defaultSettings": {"integrations":{"test": {}}}},{"count":2, "integrations":["test", "Segment.io"]}]
 function SA_IMT__createIntegrations(config, expected) as void
+  tempConfig = parseJson(formatJson(config))
   factory = function(settings, analytics) 
     return {
-      key: "Test"
+      key: "test"
     }
   end function
   if config.defaultSettings.integrations <> invalid then
-    config.factories = { Test: factory }
+    tempConfig.factories = { test: factory }
   end if
 
-  segmentLibrary = SegmentAnalytics(config)
+  segmentLibrary = SegmentAnalytics(tempConfig)
   integrationManager = segmentLibrary._integrationManager
   
   m.AssertEqual(integrationManager._integrations.count(), expected.count)
@@ -129,22 +130,23 @@ end function
 '+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 '@Test invalid factory function
-'@Params[{"writeKey": "test", defaultSettings: {"integrations":{}}},{},1]
-'@Params[{"writeKey": "test", defaultSettings: {"integrations":{Test: {}}}},{"Test": false},1]
-'@Params[{"writeKey": "test", defaultSettings: {"integrations":{Test: {}}}},{"Test": true},2]
-'@Params[{"writeKey": "test", defaultSettings: {"integrations":{Test: {}, Test2: {}}}},{"Test": false, "Test2": false},1]
-'@Params[{"writeKey": "test", defaultSettings: {"integrations":{Test: {}, Test2: {}}}},{"Test": true, "Test2": false},2]
+'@Params[{"writeKey": "test", "defaultSettings": {"integrations":{}}},{},1]
+'@Params[{"writeKey": "test", "defaultSettings": {"integrations":{"test": {}}}},{"test": false},1]
+'@Params[{"writeKey": "test", "defaultSettings": {"integrations":{"test": {}}}},{"test": true},2]
+'@Params[{"writeKey": "test", "defaultSettings": {"integrations":{"test": {}, "test2": {}}}},{"test": false, "test2": false},1]
+'@Params[{"writeKey": "test", "defaultSettings": {"integrations":{"test": {}, "test2": {}}}},{"test": true, "test2": false},2]
 function SA_IMT__createIntegrations_invalidFactory(config, setValid, expected) as void
+  tempConfig = parseJson(formatJson(config))
   factory = m.testFactory
-  config.factories = {}
+  tempConfig.factories = {}
   for each integration in config.defaultSettings.integrations.keys()
     if setValid[integration] = false
       factory = "Test"
     end if
-    config.factories[integration] = factory
+    tempConfig.factories[integration] = factory
   end for
  
-  segmentLibrary = SegmentAnalytics(config)
+  segmentLibrary = SegmentAnalytics(tempConfig)
   integrationManager = segmentLibrary._integrationManager
   
   m.AssertEqual(integrationManager._integrations.count(), expected)
@@ -155,25 +157,26 @@ end function
 '+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 '@Test invalid factory function parameters
-'@Params[{"writeKey": "test", defaultSettings: {"integrations":{}}},{},1]
-'@Params[{"writeKey": "test", defaultSettings: {"integrations":{Test: {}}}},{"Test": false},1]
-'@Params[{"writeKey": "test", defaultSettings: {"integrations":{Test: {}}}},{"Test": true},2]
-'@Params[{"writeKey": "test", defaultSettings: {"integrations":{Test: {}, Test2: {}}}},{"Test": false, "Test2": false},1]
-'@Params[{"writeKey": "test", defaultSettings: {"integrations":{Test: {}, Test2: {}}}},{"Test": true, "Test2": false},2]
+'@Params[{"writeKey": "test", "defaultSettings": {"integrations":{}}},{},1]
+'@Params[{"writeKey": "test", "defaultSettings": {"integrations":{"Test": {}}}},{"Test": false},1]
+'@Params[{"writeKey": "test", "defaultSettings": {"integrations":{"Test": {}}}},{"Test": true},2]
+'@Params[{"writeKey": "test", "defaultSettings": {"integrations":{"Test": {}, "Test2": {}}}},{"Test": false, "Test2": false},1]
+'@Params[{"writeKey": "test", "defaultSettings": {"integrations":{"Test": {}, "Test2": {}}}},{"Test": true, "Test2": false},2]
 function SA_IMT__createIntegrations_invalidFactoryParameters(config, setValid, expected) as void
+  tempConfig = parseJson(formatJson(config))
   factory = m.testFactory
   invalidFactory = function()
   end function
-  config.factories = {}
+  tempConfig.factories = {}
 
   for each integration in config.defaultSettings.integrations.keys()
     if setValid[integration] = false
       factory = invalidFactory
     end if
-    config.factories[integration] = factory
+    tempConfig.factories[integration] = factory
   end for
  
-  segmentLibrary = SegmentAnalytics(config)
+  segmentLibrary = SegmentAnalytics(tempConfig)
   integrationManager = segmentLibrary._integrationManager
   
   m.AssertEqual(integrationManager._integrations.count(), expected)
@@ -245,15 +248,15 @@ end function
 '+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 '@Test ensure that identify is always invoked for the Segment.io integration
-'@Params[{type: "identify", userId:"testUserId", traits: "testIdentifyTraits"}]
-'@Params[{type: "identify", userId:"testUserId", traits: "testIdentifyTraits", "integrations": { "test": true }}]
-'@Params[{type: "identify", userId:"testUserId", traits: "testIdentifyTraits", "integrations": { "test": false }}]
-'@Params[{type: "identify", userId:"testUserId", traits: "testIdentifyTraits", "integrations": { "Segment.io": false }}]
-'@Params[{type: "identify", userId:"testUserId", traits: "testIdentifyTraits", "integrations": { "Segment.io": true }}]
-'@Params[{type: "identify", userId:"testUserId", traits: "testIdentifyTraits", "integrations": { "all": true }}]
-'@Params[{type: "identify", userId:"testUserId", traits: "testIdentifyTraits", "integrations": { "All": true }}]
-'@Params[{type: "identify", userId:"testUserId", traits: "testIdentifyTraits", "integrations": { "all": false }}]
-'@Params[{type: "identify", userId:"testUserId", traits: "testIdentifyTraits", "integrations": { "All": false }}]
+'@Params[{"type": "identify", "userId": "testUserId", "traits": "testIdentifyTraits"}]
+'@Params[{"type": "identify", "userId": "testUserId", "traits": "testIdentifyTraits", "integrations": { "test": true }}]
+'@Params[{"type": "identify", "userId": "testUserId", "traits": "testIdentifyTraits", "integrations": { "test": false }}]
+'@Params[{"type": "identify", "userId": "testUserId", "traits": "testIdentifyTraits", "integrations": { "Segment.io": false }}]
+'@Params[{"type": "identify", "userId": "testUserId", "traits": "testIdentifyTraits", "integrations": { "Segment.io": true }}]
+'@Params[{"type": "identify", "userId": "testUserId", "traits": "testIdentifyTraits", "integrations": { "all": true }}]
+'@Params[{"type": "identify", "userId": "testUserId", "traits": "testIdentifyTraits", "integrations": { "All": true }}]
+'@Params[{"type": "identify", "userId": "testUserId", "traits": "testIdentifyTraits", "integrations": { "all": false }}]
+'@Params[{"type": "identify", "userId": "testUserId", "traits": "testIdentifyTraits", "integrations": { "All": false }}]
 function SA_IMT__identify_segmentItegration(data) as void
   m.ExpectOnce(m.segmentIntegration, "identify", [data])
   m.integrationManager.identify(data)
@@ -264,20 +267,21 @@ end function
 '+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 '@Test ensure that identify is only invoked for the test integration if enabled
-'@Params[{type: "identify", userId:"testUserId", traits: "testIdentifyTraits"}, false]
-'@Params[{type: "identify", userId:"testUserId", traits: "testIdentifyTraits2", "integrations": { "test": true }}, true]
-'@Params[{type: "identify", userId:"testUserId", traits: "testIdentifyTraits", "integrations": { "test": false }}, false]
-'@Params[{type: "identify", userId:"testUserId", traits: "testIdentifyTraits", "integrations": { "Segment.io": false }}, false]
-'@Params[{type: "identify", userId:"testUserId", traits: "testIdentifyTraits", "integrations": { "Segment.io": true }}, false]
-'@Params[{type: "identify", userId:"testUserId", traits: "testIdentifyTraits", "integrations": { "all": true }}, true]
-'@Params[{type: "identify", userId:"testUserId", traits: "testIdentifyTraits", "integrations": { "All": true }}, true]
-'@Params[{type: "identify", userId:"testUserId", traits: "testIdentifyTraits", "integrations": { "all": false }}, false]
-'@Params[{type: "identify", userId:"testUserId", traits: "testIdentifyTraits", "integrations": { "All": false }}, false]
+'@Params[{type: "identify", "userId": "testUserId", "traits": "testIdentifyTraits"}, false]
+'@Params[{type: "identify", "userId": "testUserId", "traits": "testIdentifyTraits", "integrations": { "test": true }}, true]
+'@Params[{type: "identify", "userId": "testUserId", "traits": "testIdentifyTraits", "integrations": { "test": false }}, false]
+'@Params[{type: "identify", "userId": "testUserId", "traits": "testIdentifyTraits", "integrations": { "Segment.io": false }}, false]
+'@Params[{type: "identify", "userId": "testUserId", "traits": "testIdentifyTraits", "integrations": { "Segment.io": true }}, false]
+'@Params[{type: "identify", "userId": "testUserId", "traits": "testIdentifyTraits", "integrations": { "all": true }}, true]
+'@Params[{type: "identify", "userId": "testUserId", "traits": "testIdentifyTraits", "integrations": { "All": true }}, true]
+'@Params[{type: "identify", "userId": "testUserId", "traits": "testIdentifyTraits", "integrations": { "all": false }}, false]
+'@Params[{type: "identify", "userId": "testUserId", "traits": "testIdentifyTraits", "integrations": { "All": false }}, false]
 function SA_IMT__identify_testIntegration(data, expected) as void
   if expected then
     m.ExpectOnce(m.testIntegration, "identify", [data])
+  else
+    m.ExpectNone(m.testIntegration, "identify")
   end if
-
   m.integrationManager.identify(data)
 end function
 
@@ -286,15 +290,15 @@ end function
 '+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 '@Test ensure that a non-existent identify function gets handled gracefully
-'@Params[{type: "identify", userId:"testUserId", traits: "testIdentifyTraits"}]
-'@Params[{type: "identify", userId:"testUserId", traits: "testIdentifyTraits2", "integrations": { "testEmpty": true }}]
-'@Params[{type: "identify", userId:"testUserId", traits: "testIdentifyTraits", "integrations": { "testEmpty": false }}]
-'@Params[{type: "identify", userId:"testUserId", traits: "testIdentifyTraits", "integrations": { "Segment.io": false }}]
-'@Params[{type: "identify", userId:"testUserId", traits: "testIdentifyTraits", "integrations": { "Segment.io": true }}]
-'@Params[{type: "identify", userId:"testUserId", traits: "testIdentifyTraits", "integrations": { "all": true }}]
-'@Params[{type: "identify", userId:"testUserId", traits: "testIdentifyTraits", "integrations": { "All": true }}]
-'@Params[{type: "identify", userId:"testUserId", traits: "testIdentifyTraits", "integrations": { "all": false }}]
-'@Params[{type: "identify", userId:"testUserId", traits: "testIdentifyTraits", "integrations": { "All": false }}]
+'@Params[{type: "identify", "userId": "testUserId", "traits": "testIdentifyTraits"}]
+'@Params[{type: "identify", "userId": "testUserId", "traits": "testIdentifyTraits", "integrations": { "testEmpty": true }}]
+'@Params[{type: "identify", "userId": "testUserId", "traits": "testIdentifyTraits", "integrations": { "testEmpty": false }}]
+'@Params[{type: "identify", "userId": "testUserId", "traits": "testIdentifyTraits", "integrations": { "Segment.io": false }}]
+'@Params[{type: "identify", "userId": "testUserId", "traits": "testIdentifyTraits", "integrations": { "Segment.io": true }}]
+'@Params[{type: "identify", "userId": "testUserId", "traits": "testIdentifyTraits", "integrations": { "all": true }}]
+'@Params[{type: "identify", "userId": "testUserId", "traits": "testIdentifyTraits", "integrations": { "All": true }}]
+'@Params[{type: "identify", "userId": "testUserId", "traits": "testIdentifyTraits", "integrations": { "all": false }}]
+'@Params[{type: "identify", "userId": "testUserId", "traits": "testIdentifyTraits", "integrations": { "All": false }}]
 function SA_IMT__identify_testEmptyIntegration(data) as void
   m.integrationManager.identify(data)
 end function
@@ -304,15 +308,15 @@ end function
 '+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 '@Test ensure that an exception throwing identify function gets handled gracefully
-'@Params[{type: "identify", userId:"testUserId", traits: "testIdentifyTraits"}]
-'@Params[{type: "identify", userId:"testUserId", traits: "testIdentifyTraits2", "integrations": { "testException": true }}]
-'@Params[{type: "identify", userId:"testUserId", traits: "testIdentifyTraits", "integrations": { "testException": false }}]
-'@Params[{type: "identify", userId:"testUserId", traits: "testIdentifyTraits", "integrations": { "Segment.io": false }}]
-'@Params[{type: "identify", userId:"testUserId", traits: "testIdentifyTraits", "integrations": { "Segment.io": true }}]
-'@Params[{type: "identify", userId:"testUserId", traits: "testIdentifyTraits", "integrations": { "all": true }}]
-'@Params[{type: "identify", userId:"testUserId", traits: "testIdentifyTraits", "integrations": { "All": true }}]
-'@Params[{type: "identify", userId:"testUserId", traits: "testIdentifyTraits", "integrations": { "all": false }}]
-'@Params[{type: "identify", userId:"testUserId", traits: "testIdentifyTraits", "integrations": { "All": false }}]
+'@Params[{type: "identify", "userId": "testUserId", "traits": "testIdentifyTraits"}]
+'@Params[{type: "identify", "userId": "testUserId", "traits": "testIdentifyTraits", "integrations": { "testException": true }}]
+'@Params[{type: "identify", "userId": "testUserId", "traits": "testIdentifyTraits", "integrations": { "testException": false }}]
+'@Params[{type: "identify", "userId": "testUserId", "traits": "testIdentifyTraits", "integrations": { "Segment.io": false }}]
+'@Params[{type: "identify", "userId": "testUserId", "traits": "testIdentifyTraits", "integrations": { "Segment.io": true }}]
+'@Params[{type: "identify", "userId": "testUserId", "traits": "testIdentifyTraits", "integrations": { "all": true }}]
+'@Params[{type: "identify", "userId": "testUserId", "traits": "testIdentifyTraits", "integrations": { "All": true }}]
+'@Params[{type: "identify", "userId": "testUserId", "traits": "testIdentifyTraits", "integrations": { "all": false }}]
+'@Params[{type: "identify", "userId": "testUserId", "traits": "testIdentifyTraits", "integrations": { "All": false }}]
 function SA_IMT__identify_testExceptionIntegration(data) as void
   m.integrationManager.identify(data)
 end function
@@ -322,15 +326,15 @@ end function
 '+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 '@Test ensure that track is always invoked for the Segment.io integration
-'@Params[{type: "track", "event": "testEvent", properties: "testTrackProps"}]
-'@Params[{type: "track", "event": "testEvent", properties: "testTrackProps", "integrations": { "test": true }}]
-'@Params[{type: "track", "event": "testEvent", properties: "testTrackProps", "integrations": { "test": false }}]
-'@Params[{type: "track", "event": "testEvent", properties: "testTrackProps", "integrations": { "Segment.io": false }}]
-'@Params[{type: "track", "event": "testEvent", properties: "testTrackProps", "integrations": { "Segment.io": true }}]
-'@Params[{type: "track", "event": "testEvent", properties: "testTrackProps", "integrations": { "all": true }}]
-'@Params[{type: "track", "event": "testEvent", properties: "testTrackProps", "integrations": { "All": true }}]
-'@Params[{type: "track", "event": "testEvent", properties: "testTrackProps", "integrations": { "all": false }}]
-'@Params[{type: "track", "event": "testEvent", properties: "testTrackProps", "integrations": { "All": false }}]
+'@Params[{type: "track", "event": "testEvent", "properties": "testTrackProps"}]
+'@Params[{type: "track", "event": "testEvent", "properties": "testTrackProps", "integrations": { "test": true }}]
+'@Params[{type: "track", "event": "testEvent", "properties": "testTrackProps", "integrations": { "test": false }}]
+'@Params[{type: "track", "event": "testEvent", "properties": "testTrackProps", "integrations": { "Segment.io": false }}]
+'@Params[{type: "track", "event": "testEvent", "properties": "testTrackProps", "integrations": { "Segment.io": true }}]
+'@Params[{type: "track", "event": "testEvent", "properties": "testTrackProps", "integrations": { "all": true }}]
+'@Params[{type: "track", "event": "testEvent", "properties": "testTrackProps", "integrations": { "All": true }}]
+'@Params[{type: "track", "event": "testEvent", "properties": "testTrackProps", "integrations": { "all": false }}]
+'@Params[{type: "track", "event": "testEvent", "properties": "testTrackProps", "integrations": { "All": false }}]
 function SA_IMT__track_segmentIntegration(data) as void
   m.ExpectOnce(m.segmentIntegration, "track", [data])
   m.integrationManager.track(data)
@@ -341,20 +345,21 @@ end function
 '+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 '@Test ensure that track is only invoked for the test integration if enabled
-'@Params[{type: "track", "event": "testEvent", properties: "testTrackProps"}, false]
-'@Params[{type: "track", "event": "testEvent", properties: "testTrackProps", "integrations": { "test": true }}, true]
-'@Params[{type: "track", "event": "testEvent", properties: "testTrackProps", "integrations": { "test": false }}, false]
-'@Params[{type: "track", "event": "testEvent", properties: "testTrackProps", "integrations": { "Segment.io": false }}, false]
-'@Params[{type: "track", "event": "testEvent", properties: "testTrackProps", "integrations": { "Segment.io": true }}, false]
-'@Params[{type: "track", "event": "testEvent", properties: "testTrackProps", "integrations": { "all": true }}, true]
-'@Params[{type: "track", "event": "testEvent", properties: "testTrackProps", "integrations": { "All": true }}, true]
-'@Params[{type: "track", "event": "testEvent", properties: "testTrackProps", "integrations": { "all": false }}, false]
-'@Params[{type: "track", "event": "testEvent", properties: "testTrackProps", "integrations": { "All": false }}, false]
+'@Params[{type: "track", "event": "testEvent", "properties": "testTrackProps"}, false]
+'@Params[{type: "track", "event": "testEvent", "properties": "testTrackProps", "integrations": { "test": true }}, true]
+'@Params[{type: "track", "event": "testEvent", "properties": "testTrackProps", "integrations": { "test": false }}, false]
+'@Params[{type: "track", "event": "testEvent", "properties": "testTrackProps", "integrations": { "Segment.io": false }}, false]
+'@Params[{type: "track", "event": "testEvent", "properties": "testTrackProps", "integrations": { "Segment.io": true }}, false]
+'@Params[{type: "track", "event": "testEvent", "properties": "testTrackProps", "integrations": { "all": true }}, true]
+'@Params[{type: "track", "event": "testEvent", "properties": "testTrackProps", "integrations": { "All": true }}, true]
+'@Params[{type: "track", "event": "testEvent", "properties": "testTrackProps", "integrations": { "all": false }}, false]
+'@Params[{type: "track", "event": "testEvent", "properties": "testTrackProps", "integrations": { "All": false }}, false]
 function SA_IMT__track_testIntegration(data, expected) as void
   if expected then
     m.ExpectOnce(m.testIntegration, "track", [data])
+  else
+    m.ExpectNone(m.testIntegration, "track")
   end if
-
   m.integrationManager.track(data)
 end function
 
@@ -363,15 +368,15 @@ end function
 '+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 '@Test ensure that a non-existent track function gets handled gracefully
-'@Params[{type: "track", "event": "testEvent", properties: "testTrackProps"}]
-'@Params[{type: "track", "event": "testEvent", properties: "testTrackProps", "integrations": { "testEmpty": true }}]
-'@Params[{type: "track", "event": "testEvent", properties: "testTrackProps", "integrations": { "testEmpty": false }}]
-'@Params[{type: "track", "event": "testEvent", properties: "testTrackProps", "integrations": { "Segment.io": false }}]
-'@Params[{type: "track", "event": "testEvent", properties: "testTrackProps", "integrations": { "Segment.io": true }}]
-'@Params[{type: "track", "event": "testEvent", properties: "testTrackProps", "integrations": { "all": true }}]
-'@Params[{type: "track", "event": "testEvent", properties: "testTrackProps", "integrations": { "All": true }}]
-'@Params[{type: "track", "event": "testEvent", properties: "testTrackProps", "integrations": { "all": false }}]
-'@Params[{type: "track", "event": "testEvent", properties: "testTrackProps", "integrations": { "All": false }}]
+'@Params[{type: "track", "event": "testEvent", "properties": "testTrackProps"}]
+'@Params[{type: "track", "event": "testEvent", "properties": "testTrackProps", "integrations": { "testEmpty": true }}]
+'@Params[{type: "track", "event": "testEvent", "properties": "testTrackProps", "integrations": { "testEmpty": false }}]
+'@Params[{type: "track", "event": "testEvent", "properties": "testTrackProps", "integrations": { "Segment.io": false }}]
+'@Params[{type: "track", "event": "testEvent", "properties": "testTrackProps", "integrations": { "Segment.io": true }}]
+'@Params[{type: "track", "event": "testEvent", "properties": "testTrackProps", "integrations": { "all": true }}]
+'@Params[{type: "track", "event": "testEvent", "properties": "testTrackProps", "integrations": { "All": true }}]
+'@Params[{type: "track", "event": "testEvent", "properties": "testTrackProps", "integrations": { "all": false }}]
+'@Params[{type: "track", "event": "testEvent", "properties": "testTrackProps", "integrations": { "All": false }}]
 function SA_IMT__track_testEmptyIntegration(data) as void
   m.integrationManager.track(data)
 end function
@@ -381,15 +386,15 @@ end function
 '+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 '@Test ensure that an exception throwing track function gets handled gracefully
-'@Params[{type: "track", "event": "testEvent", properties: "testTrackProps"}]
-'@Params[{type: "track", "event": "testEvent", properties: "testTrackProps", "integrations": { "testException": true }}]
-'@Params[{type: "track", "event": "testEvent", properties: "testTrackProps", "integrations": { "testException": false }}]
-'@Params[{type: "track", "event": "testEvent", properties: "testTrackProps", "integrations": { "Segment.io": false }}]
-'@Params[{type: "track", "event": "testEvent", properties: "testTrackProps", "integrations": { "Segment.io": true }}]
-'@Params[{type: "track", "event": "testEvent", properties: "testTrackProps", "integrations": { "all": true }}]
-'@Params[{type: "track", "event": "testEvent", properties: "testTrackProps", "integrations": { "All": true }}]
-'@Params[{type: "track", "event": "testEvent", properties: "testTrackProps", "integrations": { "all": false }}]
-'@Params[{type: "track", "event": "testEvent", properties: "testTrackProps", "integrations": { "All": false }}]
+'@Params[{type: "track", "event": "testEvent", "properties": "testTrackProps"}]
+'@Params[{type: "track", "event": "testEvent", "properties": "testTrackProps", "integrations": { "testException": true }}]
+'@Params[{type: "track", "event": "testEvent", "properties": "testTrackProps", "integrations": { "testException": false }}]
+'@Params[{type: "track", "event": "testEvent", "properties": "testTrackProps", "integrations": { "Segment.io": false }}]
+'@Params[{type: "track", "event": "testEvent", "properties": "testTrackProps", "integrations": { "Segment.io": true }}]
+'@Params[{type: "track", "event": "testEvent", "properties": "testTrackProps", "integrations": { "all": true }}]
+'@Params[{type: "track", "event": "testEvent", "properties": "testTrackProps", "integrations": { "All": true }}]
+'@Params[{type: "track", "event": "testEvent", "properties": "testTrackProps", "integrations": { "all": false }}]
+'@Params[{type: "track", "event": "testEvent", "properties": "testTrackProps", "integrations": { "All": false }}]
 function SA_IMT__track_testExceptionIntegration(data) as void
   m.integrationManager.track(data)
 end function
@@ -399,15 +404,15 @@ end function
 '+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 '@Test ensure that screen is always invoked for the Segment.io integration
-'@Params[{type: "screen", name:"testScreenName", category: "testScreenCategory", properties: "testScreenProps"}]
-'@Params[{type: "screen", name:"testScreenName", category: "testScreenCategory", properties: "testScreenProps", "integrations": { "test": true }}]
-'@Params[{type: "screen", name:"testScreenName", category: "testScreenCategory", properties: "testScreenProps", "integrations": { "test": false }}]
-'@Params[{type: "screen", name:"testScreenName", category: "testScreenCategory", properties: "testScreenProps", "integrations": { "Segment.io": false }}]
-'@Params[{type: "screen", name:"testScreenName", category: "testScreenCategory", properties: "testScreenProps", "integrations": { "Segment.io": true }}]
-'@Params[{type: "screen", name:"testScreenName", category: "testScreenCategory", properties: "testScreenProps", "integrations": { "all": true }}]
-'@Params[{type: "screen", name:"testScreenName", category: "testScreenCategory", properties: "testScreenProps", "integrations": { "All": true }}]
-'@Params[{type: "screen", name:"testScreenName", category: "testScreenCategory", properties: "testScreenProps", "integrations": { "all": false }}]
-'@Params[{type: "screen", name:"testScreenName", category: "testScreenCategory", properties: "testScreenProps", "integrations": { "All": false }}]
+'@Params[{type: "screen", name:"testScreenName", "category": "testScreenCategory", "properties": "testScreenProps"}]
+'@Params[{type: "screen", name:"testScreenName", "category": "testScreenCategory", "properties": "testScreenProps", "integrations": { "test": true }}]
+'@Params[{type: "screen", name:"testScreenName", "category": "testScreenCategory", "properties": "testScreenProps", "integrations": { "test": false }}]
+'@Params[{type: "screen", name:"testScreenName", "category": "testScreenCategory", "properties": "testScreenProps", "integrations": { "Segment.io": false }}]
+'@Params[{type: "screen", name:"testScreenName", "category": "testScreenCategory", "properties": "testScreenProps", "integrations": { "Segment.io": true }}]
+'@Params[{type: "screen", name:"testScreenName", "category": "testScreenCategory", "properties": "testScreenProps", "integrations": { "all": true }}]
+'@Params[{type: "screen", name:"testScreenName", "category": "testScreenCategory", "properties": "testScreenProps", "integrations": { "All": true }}]
+'@Params[{type: "screen", name:"testScreenName", "category": "testScreenCategory", "properties": "testScreenProps", "integrations": { "all": false }}]
+'@Params[{type: "screen", name:"testScreenName", "category": "testScreenCategory", "properties": "testScreenProps", "integrations": { "All": false }}]
 function SA_IMT__screen_segmentIntegration(data) as void
   m.ExpectOnce(m.segmentIntegration, "screen", [data])
   m.integrationManager.screen(data)
@@ -418,20 +423,21 @@ end function
 '+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 '@Test ensure that screen is only invoked for the test integration if enabled
-'@Params[{type: "screen", name:"testScreenName", category: "testScreenCategory", properties: "testScreenProps"}, false]
-'@Params[{type: "screen", name:"testScreenName", category: "testScreenCategory", properties: "testScreenProps", "integrations": { "test": true }}, true]
-'@Params[{type: "screen", name:"testScreenName", category: "testScreenCategory", properties: "testScreenProps", "integrations": { "test": false }}, false]
-'@Params[{type: "screen", name:"testScreenName", category: "testScreenCategory", properties: "testScreenProps", "integrations": { "Segment.io": false }}, false]
-'@Params[{type: "screen", name:"testScreenName", category: "testScreenCategory", properties: "testScreenProps", "integrations": { "Segment.io": true }}, false]
-'@Params[{type: "screen", name:"testScreenName", category: "testScreenCategory", properties: "testScreenProps", "integrations": { "all": true }}, true]
-'@Params[{type: "screen", name:"testScreenName", category: "testScreenCategory", properties: "testScreenProps", "integrations": { "All": true }}, true]
-'@Params[{type: "screen", name:"testScreenName", category: "testScreenCategory", properties: "testScreenProps", "integrations": { "all": false }}, false]
-'@Params[{type: "screen", name:"testScreenName", category: "testScreenCategory", properties: "testScreenProps", "integrations": { "All": false }}, false]
+'@Params[{type: "screen", name:"testScreenName", "category": "testScreenCategory", "properties": "testScreenProps"}, false]
+'@Params[{type: "screen", name:"testScreenName", "category": "testScreenCategory", "properties": "testScreenProps", "integrations": { "test": true }}, true]
+'@Params[{type: "screen", name:"testScreenName", "category": "testScreenCategory", "properties": "testScreenProps", "integrations": { "test": false }}, false]
+'@Params[{type: "screen", name:"testScreenName", "category": "testScreenCategory", "properties": "testScreenProps", "integrations": { "Segment.io": false }}, false]
+'@Params[{type: "screen", name:"testScreenName", "category": "testScreenCategory", "properties": "testScreenProps", "integrations": { "Segment.io": true }}, false]
+'@Params[{type: "screen", name:"testScreenName", "category": "testScreenCategory", "properties": "testScreenProps", "integrations": { "all": true }}, true]
+'@Params[{type: "screen", name:"testScreenName", "category": "testScreenCategory", "properties": "testScreenProps", "integrations": { "All": true }}, true]
+'@Params[{type: "screen", name:"testScreenName", "category": "testScreenCategory", "properties": "testScreenProps", "integrations": { "all": false }}, false]
+'@Params[{type: "screen", name:"testScreenName", "category": "testScreenCategory", "properties": "testScreenProps", "integrations": { "All": false }}, false]
 function SA_IMT__screen_testIntegration(data, expected) as void
   if expected then
     m.ExpectOnce(m.testIntegration, "screen", [data])
+  else
+    m.ExpectNone(m.testIntegration, "screen")
   end if
-
   m.integrationManager.screen(data)
 end function
 
@@ -440,15 +446,15 @@ end function
 '+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 '@Test ensure that a non-existent screen function gets handled gracefully
-'@Params[{type: "screen", name:"testScreenName", category: "testScreenCategory", properties: "testScreenProps"}]
-'@Params[{type: "screen", name:"testScreenName", category: "testScreenCategory", properties: "testScreenProps", "integrations": { "testEmpty": true }}]
-'@Params[{type: "screen", name:"testScreenName", category: "testScreenCategory", properties: "testScreenProps", "integrations": { "testEmpty": false }}]
-'@Params[{type: "screen", name:"testScreenName", category: "testScreenCategory", properties: "testScreenProps", "integrations": { "Segment.io": false }}]
-'@Params[{type: "screen", name:"testScreenName", category: "testScreenCategory", properties: "testScreenProps", "integrations": { "Segment.io": true }}]
-'@Params[{type: "screen", name:"testScreenName", category: "testScreenCategory", properties: "testScreenProps", "integrations": { "all": true }}]
-'@Params[{type: "screen", name:"testScreenName", category: "testScreenCategory", properties: "testScreenProps", "integrations": { "All": true }}]
-'@Params[{type: "screen", name:"testScreenName", category: "testScreenCategory", properties: "testScreenProps", "integrations": { "all": false }}]
-'@Params[{type: "screen", name:"testScreenName", category: "testScreenCategory", properties: "testScreenProps", "integrations": { "All": false }}]
+'@Params[{type: "screen", name:"testScreenName", "category": "testScreenCategory", "properties": "testScreenProps"}]
+'@Params[{type: "screen", name:"testScreenName", "category": "testScreenCategory", "properties": "testScreenProps", "integrations": { "testEmpty": true }}]
+'@Params[{type: "screen", name:"testScreenName", "category": "testScreenCategory", "properties": "testScreenProps", "integrations": { "testEmpty": false }}]
+'@Params[{type: "screen", name:"testScreenName", "category": "testScreenCategory", "properties": "testScreenProps", "integrations": { "Segment.io": false }}]
+'@Params[{type: "screen", name:"testScreenName", "category": "testScreenCategory", "properties": "testScreenProps", "integrations": { "Segment.io": true }}]
+'@Params[{type: "screen", name:"testScreenName", "category": "testScreenCategory", "properties": "testScreenProps", "integrations": { "all": true }}]
+'@Params[{type: "screen", name:"testScreenName", "category": "testScreenCategory", "properties": "testScreenProps", "integrations": { "All": true }}]
+'@Params[{type: "screen", name:"testScreenName", "category": "testScreenCategory", "properties": "testScreenProps", "integrations": { "all": false }}]
+'@Params[{type: "screen", name:"testScreenName", "category": "testScreenCategory", "properties": "testScreenProps", "integrations": { "All": false }}]
 function SA_IMT__screen_testEmptyIntegration(data) as void
   m.integrationManager.screen(data)
 end function
@@ -458,15 +464,15 @@ end function
 '+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 '@Test ensure that an exception throwing screen function gets handled gracefully
-'@Params[{type: "screen", name:"testScreenName", category: "testScreenCategory", properties: "testScreenProps"}]
-'@Params[{type: "screen", name:"testScreenName", category: "testScreenCategory", properties: "testScreenProps", "integrations": { "testException": true }}]
-'@Params[{type: "screen", name:"testScreenName", category: "testScreenCategory", properties: "testScreenProps", "integrations": { "testException": false }}]
-'@Params[{type: "screen", name:"testScreenName", category: "testScreenCategory", properties: "testScreenProps", "integrations": { "Segment.io": false }}]
-'@Params[{type: "screen", name:"testScreenName", category: "testScreenCategory", properties: "testScreenProps", "integrations": { "Segment.io": true }}]
-'@Params[{type: "screen", name:"testScreenName", category: "testScreenCategory", properties: "testScreenProps", "integrations": { "all": true }}]
-'@Params[{type: "screen", name:"testScreenName", category: "testScreenCategory", properties: "testScreenProps", "integrations": { "All": true }}]
-'@Params[{type: "screen", name:"testScreenName", category: "testScreenCategory", properties: "testScreenProps", "integrations": { "all": false }}]
-'@Params[{type: "screen", name:"testScreenName", category: "testScreenCategory", properties: "testScreenProps", "integrations": { "All": false }}]
+'@Params[{type: "screen", name:"testScreenName", "category": "testScreenCategory", "properties": "testScreenProps"}]
+'@Params[{type: "screen", name:"testScreenName", "category": "testScreenCategory", "properties": "testScreenProps", "integrations": { "testException": true }}]
+'@Params[{type: "screen", name:"testScreenName", "category": "testScreenCategory", "properties": "testScreenProps", "integrations": { "testException": false }}]
+'@Params[{type: "screen", name:"testScreenName", "category": "testScreenCategory", "properties": "testScreenProps", "integrations": { "Segment.io": false }}]
+'@Params[{type: "screen", name:"testScreenName", "category": "testScreenCategory", "properties": "testScreenProps", "integrations": { "Segment.io": true }}]
+'@Params[{type: "screen", name:"testScreenName", "category": "testScreenCategory", "properties": "testScreenProps", "integrations": { "all": true }}]
+'@Params[{type: "screen", name:"testScreenName", "category": "testScreenCategory", "properties": "testScreenProps", "integrations": { "All": true }}]
+'@Params[{type: "screen", name:"testScreenName", "category": "testScreenCategory", "properties": "testScreenProps", "integrations": { "all": false }}]
+'@Params[{type: "screen", name:"testScreenName", "category": "testScreenCategory", "properties": "testScreenProps", "integrations": { "All": false }}]
 function SA_IMT__screen_testExceptionIntegration(data) as void
   m.integrationManager.screen(data)
 end function
@@ -476,15 +482,15 @@ end function
 '+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 '@Test ensure that group is always invoked for the Segment.io integration
-'@Params[{type: "group", userId:"testUserId", groupId: "testGroupId", traits: "testGroupTraits"}]
-'@Params[{type: "group", userId:"testUserId", groupId: "testGroupId", traits: "testGroupTraits", "integrations": { "test": true }}]
-'@Params[{type: "group", userId:"testUserId", groupId: "testGroupId", traits: "testGroupTraits", "integrations": { "test": false }}]
-'@Params[{type: "group", userId:"testUserId", groupId: "testGroupId", traits: "testGroupTraits", "integrations": { "Segment.io": false }}]
-'@Params[{type: "group", userId:"testUserId", groupId: "testGroupId", traits: "testGroupTraits", "integrations": { "Segment.io": true }}]
-'@Params[{type: "group", userId:"testUserId", groupId: "testGroupId", traits: "testGroupTraits", "integrations": { "all": true }}]
-'@Params[{type: "group", userId:"testUserId", groupId: "testGroupId", traits: "testGroupTraits", "integrations": { "All": true }}]
-'@Params[{type: "group", userId:"testUserId", groupId: "testGroupId", traits: "testGroupTraits", "integrations": { "all": false }}]
-'@Params[{type: "group", userId:"testUserId", groupId: "testGroupId", traits: "testGroupTraits", "integrations": { "All": false }}]
+'@Params[{type: "group", "userId": "testUserId", "groupId": "testGroupId", "traits": "testGroupTraits"}]
+'@Params[{type: "group", "userId": "testUserId", "groupId": "testGroupId", "traits": "testGroupTraits", "integrations": { "test": true }}]
+'@Params[{type: "group", "userId": "testUserId", "groupId": "testGroupId", "traits": "testGroupTraits", "integrations": { "test": false }}]
+'@Params[{type: "group", "userId": "testUserId", "groupId": "testGroupId", "traits": "testGroupTraits", "integrations": { "Segment.io": false }}]
+'@Params[{type: "group", "userId": "testUserId", "groupId": "testGroupId", "traits": "testGroupTraits", "integrations": { "Segment.io": true }}]
+'@Params[{type: "group", "userId": "testUserId", "groupId": "testGroupId", "traits": "testGroupTraits", "integrations": { "all": true }}]
+'@Params[{type: "group", "userId": "testUserId", "groupId": "testGroupId", "traits": "testGroupTraits", "integrations": { "All": true }}]
+'@Params[{type: "group", "userId": "testUserId", "groupId": "testGroupId", "traits": "testGroupTraits", "integrations": { "all": false }}]
+'@Params[{type: "group", "userId": "testUserId", "groupId": "testGroupId", "traits": "testGroupTraits", "integrations": { "All": false }}]
 function SA_IMT__group_segmentIntegration(data) as void
   m.ExpectOnce(m.segmentIntegration, "group", [data])
   m.integrationManager.group(data)
@@ -495,20 +501,21 @@ end function
 '+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 '@Test ensure that group is only invoked for the test integration if enabled
-'@Params[{type: "group", userId:"testUserId", groupId: "testGroupId", traits: "testGroupTraits"}, false]
-'@Params[{type: "group", userId:"testUserId", groupId: "testGroupId", traits: "testGroupTraits", "integrations": { "test": true }}, true]
-'@Params[{type: "group", userId:"testUserId", groupId: "testGroupId", traits: "testGroupTraits", "integrations": { "test": false }}, false]
-'@Params[{type: "group", userId:"testUserId", groupId: "testGroupId", traits: "testGroupTraits", "integrations": { "Segment.io": false }}, false]
-'@Params[{type: "group", userId:"testUserId", groupId: "testGroupId", traits: "testGroupTraits", "integrations": { "Segment.io": true }}, false]
-'@Params[{type: "group", userId:"testUserId", groupId: "testGroupId", traits: "testGroupTraits", "integrations": { "all": true }}, true]
-'@Params[{type: "group", userId:"testUserId", groupId: "testGroupId", traits: "testGroupTraits", "integrations": { "All": true }}, true]
-'@Params[{type: "group", userId:"testUserId", groupId: "testGroupId", traits: "testGroupTraits", "integrations": { "all": false }}, false]
-'@Params[{type: "group", userId:"testUserId", groupId: "testGroupId", traits: "testGroupTraits", "integrations": { "All": false }}, false]
+'@Params[{type: "group", "userId": "testUserId", "groupId": "testGroupId", "traits": "testGroupTraits"}, false]
+'@Params[{type: "group", "userId": "testUserId", "groupId": "testGroupId", "traits": "testGroupTraits", "integrations": { "test": true }}, true]
+'@Params[{type: "group", "userId": "testUserId", "groupId": "testGroupId", "traits": "testGroupTraits", "integrations": { "test": false }}, false]
+'@Params[{type: "group", "userId": "testUserId", "groupId": "testGroupId", "traits": "testGroupTraits", "integrations": { "Segment.io": false }}, false]
+'@Params[{type: "group", "userId": "testUserId", "groupId": "testGroupId", "traits": "testGroupTraits", "integrations": { "Segment.io": true }}, false]
+'@Params[{type: "group", "userId": "testUserId", "groupId": "testGroupId", "traits": "testGroupTraits", "integrations": { "all": true }}, true]
+'@Params[{type: "group", "userId": "testUserId", "groupId": "testGroupId", "traits": "testGroupTraits", "integrations": { "All": true }}, true]
+'@Params[{type: "group", "userId": "testUserId", "groupId": "testGroupId", "traits": "testGroupTraits", "integrations": { "all": false }}, false]
+'@Params[{type: "group", "userId": "testUserId", "groupId": "testGroupId", "traits": "testGroupTraits", "integrations": { "All": false }}, false]
 function SA_IMT__group_testIntegration(data, expected) as void
   if expected then
     m.ExpectOnce(m.testIntegration, "group", [data])
+  else
+    m.ExpectNone(m.testIntegration, "group")
   end if
-
   m.integrationManager.group(data)
 end function
 
@@ -517,15 +524,15 @@ end function
 '+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 '@Test ensure that a non-existent group function gets handled gracefully
-'@Params[{type: "group", userId:"testUserId", groupId: "testGroupId", traits: "testGroupTraits"}]
-'@Params[{type: "group", userId:"testUserId", groupId: "testGroupId", traits: "testGroupTraits", "integrations": { "testEmpty": true }}]
-'@Params[{type: "group", userId:"testUserId", groupId: "testGroupId", traits: "testGroupTraits", "integrations": { "testEmpty": false }}]
-'@Params[{type: "group", userId:"testUserId", groupId: "testGroupId", traits: "testGroupTraits", "integrations": { "Segment.io": false }}]
-'@Params[{type: "group", userId:"testUserId", groupId: "testGroupId", traits: "testGroupTraits", "integrations": { "Segment.io": true }}]
-'@Params[{type: "group", userId:"testUserId", groupId: "testGroupId", traits: "testGroupTraits", "integrations": { "all": true }}]
-'@Params[{type: "group", userId:"testUserId", groupId: "testGroupId", traits: "testGroupTraits", "integrations": { "All": true }}]
-'@Params[{type: "group", userId:"testUserId", groupId: "testGroupId", traits: "testGroupTraits", "integrations": { "all": false }}]
-'@Params[{type: "group", userId:"testUserId", groupId: "testGroupId", traits: "testGroupTraits", "integrations": { "All": false }}]
+'@Params[{type: "group", "userId": "testUserId", "groupId": "testGroupId", "traits": "testGroupTraits"}]
+'@Params[{type: "group", "userId": "testUserId", "groupId": "testGroupId", "traits": "testGroupTraits", "integrations": { "testEmpty": true }}]
+'@Params[{type: "group", "userId": "testUserId", "groupId": "testGroupId", "traits": "testGroupTraits", "integrations": { "testEmpty": false }}]
+'@Params[{type: "group", "userId": "testUserId", "groupId": "testGroupId", "traits": "testGroupTraits", "integrations": { "Segment.io": false }}]
+'@Params[{type: "group", "userId": "testUserId", "groupId": "testGroupId", "traits": "testGroupTraits", "integrations": { "Segment.io": true }}]
+'@Params[{type: "group", "userId": "testUserId", "groupId": "testGroupId", "traits": "testGroupTraits", "integrations": { "all": true }}]
+'@Params[{type: "group", "userId": "testUserId", "groupId": "testGroupId", "traits": "testGroupTraits", "integrations": { "All": true }}]
+'@Params[{type: "group", "userId": "testUserId", "groupId": "testGroupId", "traits": "testGroupTraits", "integrations": { "all": false }}]
+'@Params[{type: "group", "userId": "testUserId", "groupId": "testGroupId", "traits": "testGroupTraits", "integrations": { "All": false }}]
 function SA_IMT__group_testEmptyIntegration(data) as void
   m.integrationManager.group(data)
 end function
@@ -535,15 +542,15 @@ end function
 '+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 '@Test ensure that a exception throwing group function gets handled gracefully
-'@Params[{type: "group", userId:"testUserId", groupId: "testGroupId", traits: "testGroupTraits"}]
-'@Params[{type: "group", userId:"testUserId", groupId: "testGroupId", traits: "testGroupTraits", "integrations": { "testException": true }}]
-'@Params[{type: "group", userId:"testUserId", groupId: "testGroupId", traits: "testGroupTraits", "integrations": { "testException": false }}]
-'@Params[{type: "group", userId:"testUserId", groupId: "testGroupId", traits: "testGroupTraits", "integrations": { "Segment.io": false }}]
-'@Params[{type: "group", userId:"testUserId", groupId: "testGroupId", traits: "testGroupTraits", "integrations": { "Segment.io": true }}]
-'@Params[{type: "group", userId:"testUserId", groupId: "testGroupId", traits: "testGroupTraits", "integrations": { "all": true }}]
-'@Params[{type: "group", userId:"testUserId", groupId: "testGroupId", traits: "testGroupTraits", "integrations": { "All": true }}]
-'@Params[{type: "group", userId:"testUserId", groupId: "testGroupId", traits: "testGroupTraits", "integrations": { "all": false }}]
-'@Params[{type: "group", userId:"testUserId", groupId: "testGroupId", traits: "testGroupTraits", "integrations": { "All": false }}]
+'@Params[{type: "group", "userId": "testUserId", "groupId": "testGroupId", "traits": "testGroupTraits"}]
+'@Params[{type: "group", "userId": "testUserId", "groupId": "testGroupId", "traits": "testGroupTraits", "integrations": { "testException": true }}]
+'@Params[{type: "group", "userId": "testUserId", "groupId": "testGroupId", "traits": "testGroupTraits", "integrations": { "testException": false }}]
+'@Params[{type: "group", "userId": "testUserId", "groupId": "testGroupId", "traits": "testGroupTraits", "integrations": { "Segment.io": false }}]
+'@Params[{type: "group", "userId": "testUserId", "groupId": "testGroupId", "traits": "testGroupTraits", "integrations": { "Segment.io": true }}]
+'@Params[{type: "group", "userId": "testUserId", "groupId": "testGroupId", "traits": "testGroupTraits", "integrations": { "all": true }}]
+'@Params[{type: "group", "userId": "testUserId", "groupId": "testGroupId", "traits": "testGroupTraits", "integrations": { "All": true }}]
+'@Params[{type: "group", "userId": "testUserId", "groupId": "testGroupId", "traits": "testGroupTraits", "integrations": { "all": false }}]
+'@Params[{type: "group", "userId": "testUserId", "groupId": "testGroupId", "traits": "testGroupTraits", "integrations": { "All": false }}]
 function SA_IMT__group_testExceptionIntegration(data) as void
   m.integrationManager.group(data)
 end function
@@ -553,15 +560,15 @@ end function
 '+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 '@Test ensure that alias is always invoked for the Segment.io integration
-'@Params[{type: "alias", userId:"testUserId"}]
-'@Params[{type: "alias", userId:"testUserId", "integrations": { "test": true }}]
-'@Params[{type: "alias", userId:"testUserId", "integrations": { "test": false }}]
-'@Params[{type: "alias", userId:"testUserId", "integrations": { "Segment.io": false }}]
-'@Params[{type: "alias", userId:"testUserId", "integrations": { "Segment.io": true }}]
-'@Params[{type: "alias", userId:"testUserId", "integrations": { "all": true }}]
-'@Params[{type: "alias", userId:"testUserId", "integrations": { "All": true }}]
-'@Params[{type: "alias", userId:"testUserId", "integrations": { "all": false }}]
-'@Params[{type: "alias", userId:"testUserId", "integrations": { "All": false }}]
+'@Params[{type: "alias", "userId": "testUserId"}]
+'@Params[{type: "alias", "userId": "testUserId", "integrations": { "test": true }}]
+'@Params[{type: "alias", "userId": "testUserId", "integrations": { "test": false }}]
+'@Params[{type: "alias", "userId": "testUserId", "integrations": { "Segment.io": false }}]
+'@Params[{type: "alias", "userId": "testUserId", "integrations": { "Segment.io": true }}]
+'@Params[{type: "alias", "userId": "testUserId", "integrations": { "all": true }}]
+'@Params[{type: "alias", "userId": "testUserId", "integrations": { "All": true }}]
+'@Params[{type: "alias", "userId": "testUserId", "integrations": { "all": false }}]
+'@Params[{type: "alias", "userId": "testUserId", "integrations": { "All": false }}]
 function SA_IMT__alias_segmentIntegration(data) as void
   m.ExpectOnce(m.segmentIntegration, "alias", [data])
   m.integrationManager.alias(data)
@@ -572,20 +579,21 @@ end function
 '+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 '@Test ensure that alias is only invoked for the test integration if enabled
-'@Params[{type: "alias", userId:"testUserId"}, false]
-'@Params[{type: "alias", userId:"testUserId", "integrations": { "test": true }}, true]
-'@Params[{type: "alias", userId:"testUserId", "integrations": { "test": false }}, false]
-'@Params[{type: "alias", userId:"testUserId", "integrations": { "Segment.io": false }}, false]
-'@Params[{type: "alias", userId:"testUserId", "integrations": { "Segment.io": true }}, false]
-'@Params[{type: "alias", userId:"testUserId", "integrations": { "all": true }}, true]
-'@Params[{type: "alias", userId:"testUserId", "integrations": { "All": true }}, true]
-'@Params[{type: "alias", userId:"testUserId", "integrations": { "all": false }}, false]
-'@Params[{type: "alias", userId:"testUserId", "integrations": { "All": false }}, false]
+'@Params[{type: "alias", "userId":"testUserId"}, false]
+'@Params[{type: "alias", "userId": "testUserId", "integrations": { "test": true }}, true]
+'@Params[{type: "alias", "userId": "testUserId", "integrations": { "test": false }}, false]
+'@Params[{type: "alias", "userId": "testUserId", "integrations": { "Segment.io": false }}, false]
+'@Params[{type: "alias", "userId": "testUserId", "integrations": { "Segment.io": true }}, false]
+'@Params[{type: "alias", "userId": "testUserId", "integrations": { "all": true }}, true]
+'@Params[{type: "alias", "userId": "testUserId", "integrations": { "All": true }}, true]
+'@Params[{type: "alias", "userId": "testUserId", "integrations": { "all": false }}, false]
+'@Params[{type: "alias", "userId": "testUserId", "integrations": { "All": false }}, false]
 function SA_IMT__alias_testIntegration(data, expected) as void
   if expected then
     m.ExpectOnce(m.testIntegration, "alias", [data])
+  else
+    m.ExpectNone(m.testIntegration, "alias")
   end if
-
   m.integrationManager.alias(data)
 end function
 
@@ -594,15 +602,15 @@ end function
 '+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 '@Test ensure that a non-existent alias function gets handled gracefully
-'@Params[{type: "alias", userId:"testUserId"}]
-'@Params[{type: "alias", userId:"testUserId", "integrations": { "testEmpty": true }}]
-'@Params[{type: "alias", userId:"testUserId", "integrations": { "testEmpty": false }}]
-'@Params[{type: "alias", userId:"testUserId", "integrations": { "Segment.io": false }}]
-'@Params[{type: "alias", userId:"testUserId", "integrations": { "Segment.io": true }}]
-'@Params[{type: "alias", userId:"testUserId", "integrations": { "all": true }}]
-'@Params[{type: "alias", userId:"testUserId", "integrations": { "All": true }}]
-'@Params[{type: "alias", userId:"testUserId", "integrations": { "all": false }}]
-'@Params[{type: "alias", userId:"testUserId", "integrations": { "All": false }}]
+'@Params[{type: "alias", "userId": "testUserId"}]
+'@Params[{type: "alias", "userId": "testUserId", "integrations": { "testEmpty": true }}]
+'@Params[{type: "alias", "userId": "testUserId", "integrations": { "testEmpty": false }}]
+'@Params[{type: "alias", "userId": "testUserId", "integrations": { "Segment.io": false }}]
+'@Params[{type: "alias", "userId": "testUserId", "integrations": { "Segment.io": true }}]
+'@Params[{type: "alias", "userId": "testUserId", "integrations": { "all": true }}]
+'@Params[{type: "alias", "userId": "testUserId", "integrations": { "All": true }}]
+'@Params[{type: "alias", "userId": "testUserId", "integrations": { "all": false }}]
+'@Params[{type: "alias", "userId": "testUserId", "integrations": { "All": false }}]
 function SA_IMT__alias_testEmptyIntegration(data) as void
   m.integrationManager.alias(data)
 end function
@@ -612,15 +620,15 @@ end function
 '+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 '@Test ensure that an exception throwing alias function gets handled gracefully
-'@Params[{type: "alias", userId:"testUserId"}]
-'@Params[{type: "alias", userId:"testUserId", "integrations": { "testException": true }}]
-'@Params[{type: "alias", userId:"testUserId", "integrations": { "testException": false }}]
-'@Params[{type: "alias", userId:"testUserId", "integrations": { "Segment.io": false }}]
-'@Params[{type: "alias", userId:"testUserId", "integrations": { "Segment.io": true }}]
-'@Params[{type: "alias", userId:"testUserId", "integrations": { "all": true }}]
-'@Params[{type: "alias", userId:"testUserId", "integrations": { "All": true }}]
-'@Params[{type: "alias", userId:"testUserId", "integrations": { "all": false }}]
-'@Params[{type: "alias", userId:"testUserId", "integrations": { "All": false }}]
+'@Params[{type: "alias", "userId": "testUserId"}]
+'@Params[{type: "alias", "userId": "testUserId", "integrations": { "testException": true }}]
+'@Params[{type: "alias", "userId": "testUserId", "integrations": { "testException": false }}]
+'@Params[{type: "alias", "userId": "testUserId", "integrations": { "Segment.io": false }}]
+'@Params[{type: "alias", "userId": "testUserId", "integrations": { "Segment.io": true }}]
+'@Params[{type: "alias", "userId": "testUserId", "integrations": { "all": true }}]
+'@Params[{type: "alias", "userId": "testUserId", "integrations": { "All": true }}]
+'@Params[{type: "alias", "userId": "testUserId", "integrations": { "all": false }}]
+'@Params[{type: "alias", "userId": "testUserId", "integrations": { "All": false }}]
 function SA_IMT__alias_testExceptionIntegration(data) as void
   m.integrationManager.alias(data)
 end function

@@ -220,7 +220,7 @@ end function
 '@Test ensures we don't pass invalid data to the integration manager
 '@Params[{type: "identify", userId:"", traits: "testIdentifyTraits", options: "testIdentifyOptions"}]
 function SAT__identify_invalidData(data) as void
-  m.ExpectNone(m.segmentAnalytics._integrationManager, "identify", true)
+  m.ExpectNone(m.segmentAnalytics._integrationManager, "identify")
   m.segmentAnalytics.identify(data.userId, data.traits, data.options)
 end function
 
@@ -231,7 +231,7 @@ end function
 '@Test ensures we don't pass invalid data to the integration manager
 '@Params[{type: "track", userId:"", properties: "testTrackProps", options: "testTrackOptions"}]
 function SAT__track_invalidData(data) as void
-  m.ExpectNone(m.segmentAnalytics._integrationManager, "track", true)
+  m.ExpectNone(m.segmentAnalytics._integrationManager, "track")
   m.segmentAnalytics.track(data.userId, data.properties, data.options)
 end function
 
@@ -242,7 +242,7 @@ end function
 '@Test ensures we don't pass invalid data to the integration manager
 '@Params[{type: "screen", userId:"", category: "testScreenCategory", properties: "testScreenProps", options: "testScreenOptions"}]
 function SAT__screen_invalidData(data) as void
-  m.ExpectNone(m.segmentAnalytics._integrationManager, "screen", true)
+  m.ExpectNone(m.segmentAnalytics._integrationManager, "screen")
   m.segmentAnalytics.screen(data.userId, data.category, data.properties, data.options)
 end function
 
@@ -253,7 +253,7 @@ end function
 '@Test ensures we don't pass invalid data to the integration manager
 '@Params[{type: "group", userId:"", groupId: "testGroupId", traits: "testGroupTraits", options: "testGroupOptions"}]
 function SAT__group_invalidData(data) as void
-  m.ExpectNone(m.segmentAnalytics._integrationManager, "group", true)
+  m.ExpectNone(m.segmentAnalytics._integrationManager, "group")
   m.segmentAnalytics.group(data.userId, data.groupId, data.traits, data.options)
 end function
 
@@ -264,7 +264,7 @@ end function
 '@Test ensures we don't pass invalid data to the integration manager
 '@Params[{type: "alias", userId:"", options: "testAliasOptions"}]
 function SAT__alias_invalidData(data) as void
-  m.ExpectNone(m.segmentAnalytics._integrationManager, "alias", true)
+  m.ExpectNone(m.segmentAnalytics._integrationManager, "alias")
   m.segmentAnalytics.alias(data.userId, data.options)
 end function
 

@@ -167,7 +167,7 @@ function SA_SIT__handleRequestMessage_success(responseCode) as void
     end sub
 
   m.segmentIntegration._serverRequestsById.addReplace("0", {"retryCount": 0, "handleMessage": handleMessage})
-  m.ExpectNone(m.segmentIntegration, "_setRequestAsRetry", true)
+  m.ExpectNone(m.segmentIntegration, "_setRequestAsRetry")
   m.segmentIntegration._handleRequestMessage(successMessage, 0)
 end function
 
@@ -275,20 +275,20 @@ function SA_SIT__addToMessageQueue5(data) as void
 
   m.AssertEqual(segmentIntegration._queueSize, settings.queueSize)
 
-  m.ExpectNone(segmentIntegration, "_sendRequest", true)
+  m.ExpectNone(segmentIntegration, "_sendRequest")
 
   segmentIntegration.group(data)
   m.AssertEqual(segmentIntegration._messageQueue.count(), 1)
 
-  m.ExpectNone(segmentIntegration, "_sendRequest", true)
+  m.ExpectNone(segmentIntegration, "_sendRequest")
   segmentIntegration.group(data)
   m.AssertEqual(segmentIntegration._messageQueue.count(), 2)
 
-  m.ExpectNone(segmentIntegration, "_sendRequest", true)
+  m.ExpectNone(segmentIntegration, "_sendRequest")
   segmentIntegration.group(data)
   m.AssertEqual(segmentIntegration._messageQueue.count(), 3)
 
-  m.ExpectNone(segmentIntegration, "_sendRequest", true)
+  m.ExpectNone(segmentIntegration, "_sendRequest")
   segmentIntegration.group(data)
   m.AssertEqual(segmentIntegration._messageQueue.count(), 4)
 
@@ -296,7 +296,7 @@ function SA_SIT__addToMessageQueue5(data) as void
   segmentIntegration.group(data)
   m.AssertEqual(segmentIntegration._messageQueue.count(), 0)
 
-  m.ExpectNone(segmentIntegration, "_sendRequest", true)
+  m.ExpectNone(segmentIntegration, "_sendRequest")
   segmentIntegration.group(data)
   m.AssertEqual(segmentIntegration._messageQueue.count(), 1)
 end function
@@ -314,11 +314,11 @@ function SA_SIT__addToMessageQueue3(data, config) as void
 
   m.AssertEqual(segmentIntegration._queueSize, settings.queueSize)
 
-  m.ExpectNone(segmentIntegration, "_sendRequest", true)
+  m.ExpectNone(segmentIntegration, "_sendRequest")
   segmentIntegration.group(data)
   m.AssertEqual(segmentIntegration._messageQueue.count(), 1)
 
-  m.ExpectNone(segmentIntegration, "_sendRequest", true)
+  m.ExpectNone(segmentIntegration, "_sendRequest")
   segmentIntegration.group(data)
   m.AssertEqual(segmentIntegration._messageQueue.count(), 2)
 
@@ -326,11 +326,11 @@ function SA_SIT__addToMessageQueue3(data, config) as void
   segmentIntegration.group(data)
   m.AssertEqual(segmentIntegration._messageQueue.count(), 0)
 
-  m.ExpectNone(segmentIntegration, "_sendRequest", true)
+  m.ExpectNone(segmentIntegration, "_sendRequest")
   segmentIntegration.group(data)
   m.AssertEqual(segmentIntegration._messageQueue.count(), 1)
 
-  m.ExpectNone(segmentIntegration, "_sendRequest", true)
+  m.ExpectNone(segmentIntegration, "_sendRequest")
   segmentIntegration.group(data)
   m.AssertEqual(segmentIntegration._messageQueue.count(), 2)
 end function
@@ -347,7 +347,7 @@ function SA_SIT__invalidTooBigMessageQueue(data) as void
     data.traits.push(fillerObject)
   end for
 
-  m.ExpectNone(m.segmentIntegration, "_sendRequest", true)
+  m.ExpectNone(m.segmentIntegration, "_sendRequest")
   m.segmentIntegration.group(data)
   m.AssertEqual(m.segmentIntegration._messageQueue.count(), 0)
 end function

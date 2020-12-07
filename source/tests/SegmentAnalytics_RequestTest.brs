@@ -127,9 +127,10 @@ end function
 '+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 '@Test ensure handleMessage handles invalid JSON objects gracefully
-'@Params[200, "'success': true"]
-function SA_RT__handleMessage_invalid(responseCode, rawResponse) as void
+'@Params[200]
+function SA_RT__handleMessage_invalid(responseCode) as void
   urlTransfer = createObject("roUrlTransfer")
+  rawResponse = "{message: success}"
 
   options = {
     urlTransfer: urlTransfer
