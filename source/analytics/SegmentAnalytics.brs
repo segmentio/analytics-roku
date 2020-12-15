@@ -7,6 +7,7 @@
 ' retryLimit=[size] to limit the number of retries for a message
 ' requestPoolSize=[size] to set the number of reusable request objects
 ' apiHost Segment.io base url
+' settingsApiHost Segment UI settings url
 ' factories associative array that contains factory to create each integration
 ' defaultSettings associative array which in can include the following:
 ' integrations associative array that contains configuration for each integration
@@ -37,13 +38,22 @@ function SegmentAnalytics(config as Object) as Object
     log: log
 
     'private functions
+    _fetchRemoteSettings: _SegmentAnalytics_fetchRemoteSettings
+    _createConfigSettingsWithRemoteSettings: _SegmentAnalytics_createConfigSettingsWithRemoteSettings
+    _saveRemoteSettingsToLocalStorage: _SegmentAnalytics_saveRemoteSettingsToLocalStorage
     _checkValidId: _SegmentAnalytics_checkValidId
     _addValidFieldsToAA: _SegmentAnalytics_addValidFieldsToAA
     _addValidFieldToAA: _SegmentAnalytics_addValidFieldToAA
     _configBundledIntegrations: _SegmentAnalytics_configBundledIntegrations
+
+    'private variables
+    _integrationManager: invalid
+    _remoteSettingsRequest: invalid
+    _remoteSettingsUrl: updatedConfig.settingsApiHost + "/v1/projects/" + updatedConfig.writeKey + "/settings"
+    _initialRequestQueue: []
+    _port: createObject("roMessagePort")
   }
-  this._configBundledIntegrations()
-  this._integrationManager = _SegmentAnalytics_IntegrationsManager(this.config, this)
+  this._fetchRemoteSettings()
 
   return this
 end function
@@ -68,7 +78,12 @@ sub _SegmentAnalytics_identify(userId as String, traits = invalid as Dynamic, op
   if data["messageId"] = invalid
     data["messageId"] = createObject("roDeviceInfo").getRandomUUID()
   end if
-  m._integrationManager.identify(data)
+  
+  if m._integrationManager <> invalid then
+    m._integrationManager.identify(data)
+  else
+    m._initialRequestQueue.push(data)
+  end if
 end sub
 
 ' Tracks an event from the application
@@ -91,7 +106,11 @@ sub _SegmentAnalytics_track(event as String, properties = invalid as Dynamic, op
     data["messageId"] = createObject("roDeviceInfo").getRandomUUID()
   end if
 
-  m._integrationManager.track(data)
+  if m._integrationManager <> invalid then
+    m._integrationManager.track(data)
+  else
+    m._initialRequestQueue.push(data)
+  end if
 end sub
 
 ' Determines the screen the application is on
@@ -124,7 +143,11 @@ sub _SegmentAnalytics_screen(name = invalid as Dynamic, category = invalid as Dy
     data["messageId"] = createObject("roDeviceInfo").getRandomUUID()
   end if
 
-  m._integrationManager.screen(data)
+  if m._integrationManager <> invalid then
+    m._integrationManager.screen(data)
+  else
+    m._initialRequestQueue.push(data)
+  end if
 end sub
 
 ' Determines the organization on who is leveraging this library
@@ -150,7 +173,11 @@ sub _SegmentAnalytics_group(userId as String, groupId as String, traits = invali
     data["messageId"] = createObject("roDeviceInfo").getRandomUUID()
   end if
 
-  m._integrationManager.group(data)
+  if m._integrationManager <> invalid then
+    m._integrationManager.group(data)
+  else
+    m._initialRequestQueue.push(data)
+  end if
 end sub
 
 ' Helps segment analytics merge multiple identities from one user within the running application
@@ -171,15 +198,43 @@ sub _SegmentAnalytics_alias(userId as String, options = {} as Object)
     data["messageId"] = createObject("roDeviceInfo").getRandomUUID()
   end if
 
-  m._integrationManager.alias(data)
+  if m._integrationManager <> invalid then
+    m._integrationManager.alias(data)
+  else
+    m._initialRequestQueue.push(data)
+  end if
 end sub
 
 sub _SegmentAnalytics_processMessages()
-  m._integrationManager.processMessages()
+  message = wait(1, m._port)
+
+  'Initialize remote settings, create array of bundled integrations, and initialize integrationManager
+  if m._remoteSettingsRequest.handleMessage(message) then
+    remoteSettings = invalid
+    if m._remoteSettingsRequest.response.error = true then
+      m.log.error("Failed to fetch remote settings: " + strI(m._remoteSettingsRequest.response.responseCode))
+    else
+      remoteSettings = m._remoteSettingsRequest.response
+      m.log.debug("Fetched remote settings")
+    end if
+
+    m.config.settings = m._createConfigSettingsWithRemoteSettings(remoteSettings, m.config.defaultSettings)
+    m._configBundledIntegrations()
+
+    m._integrationManager = _SegmentAnalytics_IntegrationsManager(m.config, m)
+    for each data in m._initialRequestQueue
+      m._integrationManager._callIntegrations(data.type, data)
+    end for
+    m._initialRequestQueue.clear()
+  else if m._integrationManager <> invalid
+    m._integrationManager.processMessages()
+  end if
 end sub
 
 sub _SegmentAnalytics_flush()
-  m._integrationManager.flush()
+  if m._integrationManager <> invalid then
+    m._integrationManager.flush()
+  end if
 end sub
 
 'Validates required configuration fields
@@ -233,8 +288,16 @@ function _SegmentAnalytics_configWithDefaultValues(config as Object) as Object
     updatedConfig.apiHost = "https://api.segment.io"
   end if
 
+  if config.settingsApiHost = invalid or (type(config.settingsApiHost) <> "roString" and type(config.settingsApiHost) <> "String") then
+    updatedConfig.settingsApiHost = "https://cdn-settings.segment.com"
+  end if
+
   if config.factories = invalid or type(config.factories) <> "roAssociativeArray" then
     updatedConfig.factories = {}
+  end if
+
+  if config.settings = invalid or type(config.settings) <> "roAssociativeArray" then
+    updatedConfig.settings = {}
   end if
 
   if config.defaultSettings = invalid or type(config.defaultSettings) <> "roAssociativeArray" then
@@ -243,16 +306,31 @@ function _SegmentAnalytics_configWithDefaultValues(config as Object) as Object
 
   if config.defaultSettings.integrations = invalid or type(config.defaultSettings.integrations) <> "roAssociativeArray" then 
     updatedConfig.defaultSettings.integrations = {}
-  end if   
+  end if
+  
+  if config.defaultSettings.integrations["Segment.io"] = invalid or type(config.defaultSettings.integrations["Segment.io"]) <> "roAssociativeArray" then
+    config.defaultSettings.integrations["Segment.io"] = {}
+  end if
+
+  if config.defaultSettings.plan = invalid or type(config.defaultSettings.plan) <> "roAssociativeArray" then 
+    updatedConfig.defaultSettings.plan = {
+      track: {
+        __default: {
+          enabled: true
+          integrations: {}
+        }
+      }
+    }
+  end if
 
   return updatedConfig 
 end function
 
 'Make sure each integration has a valid factory function and settings object
-sub _SegmentAnalytics_configBundledIntegrations()
+function _SegmentAnalytics_configBundledIntegrations() as Void
   bundledFactories = {}
   for each name in m.config.factories.keys()
-    settings = m.config.defaultSettings.integrations[name] 
+    settings = m.config.settings.integrations[name] 
     factory = m.config.factories[name]
 
     if factory <> invalid and getInterface(factory, "ifFunction") <> invalid and settings <> invalid and type(settings) = "roAssociativeArray" then
@@ -263,8 +341,58 @@ sub _SegmentAnalytics_configBundledIntegrations()
       m.log.error("Could not create device mode integration for " + name + " due to missing settings in configuration")
     end if
   end for
+
   m.config.factories = bundledFactories
-end sub
+end function
+
+function _SegmentAnalytics_saveRemoteSettingsToLocalStorage(remoteSettings as Object) as Void
+  section = createObject("roRegistrySection", "__SegmentAnalytics_Settings")
+  isCached = section.write("RemoteSettings", formatJson(remoteSettings))
+  if isCached = true then
+    section.flush()
+    m.log.debug("Cached remote settings")
+  else
+    m.log.error("Unable to cache remote settings")
+  end if
+end function
+
+function _SegmentAnalytics_createConfigSettingsWithRemoteSettings(remoteSettings as Dynamic, defaultSettings as Object) as Object
+  if remoteSettings <> invalid then
+    m._saveRemoteSettingsToLocalStorage(remoteSettings)
+    return remoteSettings
+  else
+    section = createObject("roRegistrySection", "__SegmentAnalytics_Settings")
+    if section.exists("RemoteSettings")
+      try
+        remoteSettings = parseJson(section.read("RemoteSettings"))
+        if type(remoteSettings) = "roAssociativeArray" then return remoteSettings
+      catch e
+        m.log.error("Failed to read remote settings from cache: Exception: " + e.message)
+      end try
+      m.log.debug("Loaded remote settings from cache")
+    else
+      m.log.error("Cached Remote settings not found")
+    endif
+    return defaultSettings
+  end if
+end function
+
+function _SegmentAnalytics_fetchRemoteSettings() as Void
+  options = {
+    method: "GET"
+    url: m._remoteSettingsUrl
+    headers: {
+      "Content-Type": "application/json"
+      "Accept": "application/json"
+    }
+  }
+  remoteSettingsRequest = _SegmentAnalytics_Request(options, m.log, m._port)
+  m._remoteSettingsRequest = remoteSettingsRequest
+
+  if GetGlobalAA().global.testsScene = invalid then
+    remoteSettingsRequest.send()
+  end if
+end function
 
 'Checks if we have a valid user of anonymous id for the request
 function _SegmentAnalytics_checkValidId(data as Dynamic) as Boolean
@@ -355,9 +483,11 @@ function _SegmentAnalytics_IntegrationsManager(config as Object, analytics as Ob
     _callIntegrations: _SegmentAnalytics_IntegrationsManager_callIntegrations
     _isIntegrationEnabled: _SegmentAnalytics_IntegrationsManager_isIntegrationEnabled
     _createIntegrations: _SegmentAnalytics_IntegrationsManager_createIntegrations
+    _isTrackEventEnabled: _SegmentAnalytics_IntegrationsManager_isTrackEventEnabled
 
     'private variables
     _log: analytics.log
+    _integrationPlan: config.settings.plan
   }
   factories = config.factories
   factories["Segment.io"] = _SegmentAnalytics_SegmentIntegrationFactory
@@ -426,19 +556,38 @@ sub _SegmentAnalytics_IntegrationsManager_callIntegrations(name as String, data 
   end for  
 end sub
 
+'Determine if track event is enabled in plan
+function _SegmentAnalytics_IntegrationsManager_isTrackEventEnabled(event as String, key as String, plan as Object) as Boolean
+  if plan.track <> invalid then
+    if plan.track[event] <> invalid then
+      if plan.track[event].enabled = true and plan.track[event].integrations <> invalid and plan.track[event].integrations[key] = true then
+        return true
+      end if
+    else if plan.track.__default <> invalid and plan.track.__default.enabled = true
+      return true
+    end if
+  end if
+
+  return false
+end function
+
 'Determine if integration is enabled to process event 
 function _SegmentAnalytics_IntegrationsManager_isIntegrationEnabled(integration as Object, name as String, data = invalid) as Boolean
   if integration[name] <> invalid and getInterface(integration[name], "ifFunction") <> invalid then
     if integration.key = "Segment.io" then
       return true
-    else if data = invalid or (data.integrations <> invalid and (data.integrations[integration.key] = true or data.integrations["all"] = true or data.integrations["All"] = true))
+    else if data = invalid
       return true
-    else
-      return false
+    else if data.integrations <> invalid and (data.integrations[integration.key] = true or data.integrations["all"] = true or data.integrations["All"] = true)
+      if name = "track" then
+        return m._isTrackEventEnabled(data.event, integration.key, m._integrationPlan)
+      else
+        return true
+      end if
     end if
-  else
-    return false
   end if
+
+  return false
 end function
 
 'Creates integrations using factories defined in SegmentAnalyticsTask.xml and references any settings from config.defaultSettings.integrations[factory key]
@@ -446,7 +595,7 @@ end function
 function _SegmentAnalytics_IntegrationsManager_createIntegrations(config as Object, analytics as Object) as Object
   integrations = []
   for each name in config.factories.keys()
-    settings = config.defaultSettings.integrations[name]
+    settings = config.settings.integrations[name]
     factory = config.factories[name]
 
     try
@@ -894,13 +1043,15 @@ function _SegmentAnalytics_Request(options as Object, log as Object, port as Obj
 
     if responseCode >= 200 and responseCode <= 299 and parsedResponse <> invalid then
       m._log.debug("Successful request")
+      m.response = parsedResponse
       for each handler in m._successHandlers
         'bs:disable-next-line
         handler(parsedResponse, m)
       end for
     else
       errorReason = message.getFailureReason()
-      error = {url: m._url, reason: errorReason, response: rawResponse, responseCode: responseCode}
+      error = {error: true, url: m._url, reason: errorReason, response: rawResponse, responseCode: responseCode}
+      m.response = error
       m._log.debug("Failed request")
 
       for each handler in m._errorHandlers
@@ -916,6 +1067,7 @@ function _SegmentAnalytics_Request(options as Object, log as Object, port as Obj
   end function
 
   this.id = this._urlTransfer.getIdentity()
+  this._urlTransfer.enableEncodings(true)
   this._urlTransfer.setUrl(this._url)
   this._urlTransfer.setRequest(this._method)
   this._urlTransfer.retainBodyOnError(true)

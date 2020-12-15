@@ -54,22 +54,42 @@ function SA_IMT_BeforeEach()
     }  
   end function
 
-  m.config = {
+  config = {
+    apiHost: ""
     writeKey: "test"
     factories: { 
       test: m.testFactory
       testEmpty: m.testEmptyFactory
       testException: m.testExceptionFactory 
     }
-    defaultSettings: {
-      integrations: {
-        test: {}
-        testEmpty: {}
-        testException: {}
+  }
+  remoteSettings = {
+    integrations: {
+      test: {}
+      testEmpty: {}
+      testException: {}
+      "Segment.io": {}
+    }
+    plan: {
+      track: {
+        __default: {
+          enabled: true
+          integrations: {}
+        }
       }
     }
   }
-  m.segmentAnalytics = SegmentAnalytics(m.config)
+
+  m.config = {}
+  m.config.append(config)
+  m.config.append({settings: remoteSettings})
+  m.log = _SegmentAnalytics_Logger()
+
+  m.segmentAnalytics = {
+    log: m.log
+    config: m.config
+    version: "1"
+  }
   m.integrationManager = _SegmentAnalytics_IntegrationsManager(m.config, m.segmentAnalytics)
 
   for each integration in m.integrationManager._integrations
@@ -96,21 +116,26 @@ end function
 '+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 '@Test ensure Segment.io integration is created by default plus other integrations 
-'@Params[{"writeKey": "test", "defaultSettings": {}},{"count":1, "integrations":["Segment.io"]}]
+'@Params[{"writeKey": "test", "defaultSettings": {"integrations":{}}},{"count":1, "integrations":["Segment.io"]}]
 '@Params[{"writeKey": "test", "defaultSettings": {"integrations":{"test": {}}}},{"count":2, "integrations":["test", "Segment.io"]}]
 function SA_IMT__createIntegrations(config, expected) as void
-  tempConfig = parseJson(formatJson(config))
+  tempConfig = {}
+  tempConfig.append(m.config)
+  tempConfig.settings.integrations = config.defaultSettings.integrations
+
   factory = function(settings, analytics) 
     return {
       key: "test"
     }
   end function
-  if config.defaultSettings.integrations <> invalid then
+
+  if tempConfig.settings.integrations.doesExist("test") then
     tempConfig.factories = { test: factory }
+  else
+    tempConfig.factories = {}
   end if
 
-  segmentLibrary = SegmentAnalytics(tempConfig)
-  integrationManager = segmentLibrary._integrationManager
+  integrationManager = _SegmentAnalytics_IntegrationsManager(tempConfig, m.segmentAnalytics)
   
   m.AssertEqual(integrationManager._integrations.count(), expected.count)
 
@@ -137,6 +162,9 @@ end function
 '@Params[{"writeKey": "test", "defaultSettings": {"integrations":{"test": {}, "test2": {}}}},{"test": true, "test2": false},2]
 function SA_IMT__createIntegrations_invalidFactory(config, setValid, expected) as void
   tempConfig = parseJson(formatJson(config))
+  baseConfig = {}
+  baseConfig.append(m.config)
+
   factory = m.testFactory
   tempConfig.factories = {}
   for each integration in config.defaultSettings.integrations.keys()
@@ -146,8 +174,8 @@ function SA_IMT__createIntegrations_invalidFactory(config, setValid, expected) a
     tempConfig.factories[integration] = factory
   end for
  
-  segmentLibrary = SegmentAnalytics(tempConfig)
-  integrationManager = segmentLibrary._integrationManager
+  baseConfig.append(tempConfig)
+  integrationManager = _SegmentAnalytics_IntegrationsManager(baseConfig, m.segmentAnalytics)
   
   m.AssertEqual(integrationManager._integrations.count(), expected)
 end function
@@ -157,27 +185,26 @@ end function
 '+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 '@Test invalid factory function parameters
-'@Params[{"writeKey": "test", "defaultSettings": {"integrations":{}}},{},1]
-'@Params[{"writeKey": "test", "defaultSettings": {"integrations":{"Test": {}}}},{"Test": false},1]
-'@Params[{"writeKey": "test", "defaultSettings": {"integrations":{"Test": {}}}},{"Test": true},2]
-'@Params[{"writeKey": "test", "defaultSettings": {"integrations":{"Test": {}, "Test2": {}}}},{"Test": false, "Test2": false},1]
-'@Params[{"writeKey": "test", "defaultSettings": {"integrations":{"Test": {}, "Test2": {}}}},{"Test": true, "Test2": false},2]
-function SA_IMT__createIntegrations_invalidFactoryParameters(config, setValid, expected) as void
-  tempConfig = parseJson(formatJson(config))
+'@Params[{"integrations":{}, "plan": {"track": {"__default": {"enabled": true, "integrations": {}}}}},{},1]
+'@Params[{"integrations":{"Test": {}}, "plan": {"track": {"__default": {"enabled": true, "integrations": {}}}}},{"Test": false},1]
+'@Params[{"integrations":{"Test": {}}, "plan": {"track": {"__default": {"enabled": true, "integrations": {}}}}},{"Test": true},2]
+'@Params[{"integrations":{"Test": {}, "Test2": {}}, "plan": {"track": {"__default": {"enabled": true, "integrations": {}}}}},{"Test": false, "Test2": false},1]
+'@Params[{"integrations":{"Test": {}, "Test2": {}}, "plan": {"track": {"__default": {"enabled": true, "integrations": {}}}}},{"Test": true, "Test2": false},2]
+function SA_IMT__createIntegrations_invalidFactoryParameters(remoteSettings, setValid, expected) as void
   factory = m.testFactory
   invalidFactory = function()
-  end function
+    end function
+  tempConfig = m.config
   tempConfig.factories = {}
 
-  for each integration in config.defaultSettings.integrations.keys()
+  for each integration in remoteSettings.integrations.keys()
     if setValid[integration] = false
       factory = invalidFactory
     end if
     tempConfig.factories[integration] = factory
   end for
- 
-  segmentLibrary = SegmentAnalytics(tempConfig)
-  integrationManager = segmentLibrary._integrationManager
+  
+  integrationManager = _SegmentAnalytics_IntegrationsManager(tempConfig, m.segmentAnalytics)
   
   m.AssertEqual(integrationManager._integrations.count(), expected)
 end function
@@ -189,56 +216,216 @@ end function
 '@Test with Segment.io and Test factory
 '@Params[{"name": "unknown", "data": null },{"segmentIntegration": false, "testIntegrations": false}]
 '@Params[{"name": "unknown", "data": {}},{"segmentIntegration": false, "testIntegrations": false}]
-'@Params[{"name": "unknown", "data": {"integrations": { "Test": true }}},{"segmentIntegration": false, "testIntegrations": false}]
-'@Params[{"name": "processMessages", "data": null},{"segmentIntegration": true, "testIntegrations": false}]
-'@Params[{"name": "processMessages", "data": {"integrations": { "Test": true }}},{"segmentIntegration": true, "testIntegrations": false}]
+'@Params[{"name": "unknown", "data": {"integrations": { "test": true }}},{"segmentIntegration": false, "testIntegrations": false}]
+'@Params[{"name": "processMessages", "data": null},{"segmentIntegration": true, "testIntegrations": true}]
+'@Params[{"name": "processMessages", "data": {"integrations": { "test": true }}},{"segmentIntegration": true, "testIntegrations": true}]
 '@Params[{"name": "processMessages", "data": {"integrations": { "Segment.io": false }}},{"segmentIntegration": true, "testIntegrations": false}]
 '@Params[{"name": "identify", "data": null},{"segmentIntegration": true, "testIntegrations": true}]
 '@Params[{"name": "identify", "data": {}},{"segmentIntegration": true, "testIntegrations": false}]
 '@Params[{"name": "identify", "data": {"integrations": {}}},{"segmentIntegration": true, "testIntegrations": false}]
-'@Params[{"name": "identify", "data": {"integrations": { "Test": true }}},{"segmentIntegration": true, "testIntegrations": true}]
-'@Params[{"name": "identify", "data": {"integrations": { "Test": false }}},{"segmentIntegration": true, "testIntegrations": false}]
+'@Params[{"name": "identify", "data": {"integrations": { "test": true }}},{"segmentIntegration": true, "testIntegrations": true}]
+'@Params[{"name": "identify", "data": {"integrations": { "test": false }}},{"segmentIntegration": true, "testIntegrations": false}]
 '@Params[{"name": "identify", "data": {"integrations": { "Segment.io": false }}},{"segmentIntegration": true, "testIntegrations": false}]
 '@Params[{"name": "identify", "data": {"integrations": { "all": true }}},{"segmentIntegration": true, "testIntegrations": true}]
 '@Params[{"name": "identify", "data": {"integrations": { "All": true }}},{"segmentIntegration": true, "testIntegrations": true}]
-'@Params[{"name": "track", "data": null},{"segmentIntegration": true, "testIntegrations": false}]
-'@Params[{"name": "track", "data": {}},{"segmentIntegration": true, "testIntegrations": false}]
-'@Params[{"name": "track", "data": {"integrations": {}}},{"segmentIntegration": true, "testIntegrations": false}]
-'@Params[{"name": "track", "data": {"integrations": { "Test": true }}},{"segmentIntegration": true, "testIntegrations": true}]
-'@Params[{"name": "track", "data": {"integrations": { "Test": false }}},{"segmentIntegration": true, "testIntegrations": false}]
-'@Params[{"name": "track", "data": {"integrations": { "Segment.io": false }}},{"segmentIntegration": true, "testIntegrations": false}]
-'@Params[{"name": "track", "data": {"integrations": { "all": true }}},{"segmentIntegration": true, "testIntegrations": false}]
-'@Params[{"name": "track", "data": {"integrations": { "All": true }}},{"segmentIntegration": true, "testIntegrations": false}]
-'@Params[{"name": "screen", "data": null},{"segmentIntegration": true, "testIntegrations": false}]
+'@Params[{"name": "screen", "data": null},{"segmentIntegration": true, "testIntegrations": true}]
 '@Params[{"name": "screen", "data": {}},{"segmentIntegration": true, "testIntegrations": false}]
 '@Params[{"name": "screen", "data": {"integrations": {}}},{"segmentIntegration": true, "testIntegrations": false}]
-'@Params[{"name": "screen", "data": {"integrations": { "Test": true }}},{"segmentIntegration": true, "testIntegrations": true}]
-'@Params[{"name": "screen", "data": {"integrations": { "Test": false }}},{"segmentIntegration": true, "testIntegrations": false}]
+'@Params[{"name": "screen", "data": {"integrations": { "test": true }}},{"segmentIntegration": true, "testIntegrations": true}]
+'@Params[{"name": "screen", "data": {"integrations": { "test": false }}},{"segmentIntegration": true, "testIntegrations": false}]
 '@Params[{"name": "screen", "data": {"integrations": { "Segment.io": false }}},{"segmentIntegration": true, "testIntegrations": false}]
-'@Params[{"name": "screen", "data": {"integrations": { "all": true }}},{"segmentIntegration": true, "testIntegrations": false}]
-'@Params[{"name": "screen", "data": {"integrations": { "All": true }}},{"segmentIntegration": true, "testIntegrations": false}]
-'@Params[{"name": "group", "data": null},{"segmentIntegration": true, "testIntegrations": false}]
+'@Params[{"name": "screen", "data": {"integrations": { "all": true }}},{"segmentIntegration": true, "testIntegrations": true}]
+'@Params[{"name": "screen", "data": {"integrations": { "All": true }}},{"segmentIntegration": true, "testIntegrations": true}]
+'@Params[{"name": "group", "data": null},{"segmentIntegration": true, "testIntegrations": true}]
 '@Params[{"name": "group", "data": {}},{"segmentIntegration": true, "testIntegrations": false}]
 '@Params[{"name": "group", "data": {"integrations": {}}},{"segmentIntegration": true, "testIntegrations": false}]
-'@Params[{"name": "group", "data": {"integrations": { "Test": true }}},{"segmentIntegration": true, "testIntegrations": true}]
-'@Params[{"name": "group", "data": {"integrations": { "Test": false }}},{"segmentIntegration": true, "testIntegrations": false}]
+'@Params[{"name": "group", "data": {"integrations": { "test": true }}},{"segmentIntegration": true, "testIntegrations": true}]
+'@Params[{"name": "group", "data": {"integrations": { "test": false }}},{"segmentIntegration": true, "testIntegrations": false}]
 '@Params[{"name": "group", "data": {"integrations": { "Segment.io": false }}},{"segmentIntegration": true, "testIntegrations": false}]
-'@Params[{"name": "group", "data": {"integrations": { "all": true }}},{"segmentIntegration": true, "testIntegrations": false}]
-'@Params[{"name": "group", "data": {"integrations": { "All": true }}},{"segmentIntegration": true, "testIntegrations": false}]
-'@Params[{"name": "alias", "data": null},{"segmentIntegration": true, "testIntegrations": false}]
+'@Params[{"name": "group", "data": {"integrations": { "all": true }}},{"segmentIntegration": true, "testIntegrations": true}]
+'@Params[{"name": "group", "data": {"integrations": { "All": true }}},{"segmentIntegration": true, "testIntegrations": true}]
+'@Params[{"name": "alias", "data": null},{"segmentIntegration": true, "testIntegrations": true}]
 '@Params[{"name": "alias", "data": {}},{"segmentIntegration": true, "testIntegrations": false}]
 '@Params[{"name": "alias", "data": {"integrations": {}}},{"segmentIntegration": true, "testIntegrations": false}]
-'@Params[{"name": "alias", "data": {"integrations": { "Test": true }}},{"segmentIntegration": true, "testIntegrations": true}]
-'@Params[{"name": "alias", "data": {"integrations": { "Test": false }}},{"segmentIntegration": true, "testIntegrations": false}]
+'@Params[{"name": "alias", "data": {"integrations": { "test": true }}},{"segmentIntegration": true, "testIntegrations": true}]
+'@Params[{"name": "alias", "data": {"integrations": { "test": false }}},{"segmentIntegration": true, "testIntegrations": false}]
 '@Params[{"name": "alias", "data": {"integrations": { "Segment.io": false }}},{"segmentIntegration": true, "testIntegrations": false}]
-'@Params[{"name": "alias", "data": {"integrations": { "all": true }}},{"segmentIntegration": true, "testIntegrations": false}]
-'@Params[{"name": "alias", "data": {"integrations": { "All": true }}},{"segmentIntegration": true, "testIntegrations": false}]
+'@Params[{"name": "alias", "data": {"integrations": { "all": true }}},{"segmentIntegration": true, "testIntegrations": true}]
+'@Params[{"name": "alias", "data": {"integrations": { "All": true }}},{"segmentIntegration": true, "testIntegrations": true}]
 function SA_IMT__isIntegrationEnabled(testInput, expected) as void
   for each integration in m.integrationManager._integrations
     if integration.key = "Segment.io" then
       m.AssertEqual(m.integrationManager._isIntegrationEnabled(integration, testInput.name, testInput.data), expected.segmentIntegration)
-    else if integration.key = "Test"
+    else if integration.key = "test"
       m.AssertEqual(m.integrationManager._isIntegrationEnabled(integration, testInput.name, testInput.data), expected.testIntegrations)
+    end if
+  end for
+end function
+
+'+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+'@It test isIntegrationEnabled with enabled track event
+'+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+'@Test ensure test integration track events are enabled when event is enabled in track plan
+'@Params[{"name": "track", "data": {"event": "enabledEvent"}}, false]
+'@Params[{"name": "track", "data": {"event": "enabledEvent"}}, false]
+'@Params[{"name": "track", "data": {"event": "enabledEvent", "integrations": {}}}, false]
+'@Params[{"name": "track", "data": {"event": "enabledEvent", "integrations": { "test": true }}}, true]
+'@Params[{"name": "track", "data": {"event": "enabledEvent", "integrations": { "test": false }}}, false]
+'@Params[{"name": "track", "data": {"event": "enabledEvent", "integrations": { "Segment.io": false }}}, false]
+'@Params[{"name": "track", "data": {"event": "enabledEvent", "integrations": { "all": true }}}, true]
+'@Params[{"name": "track", "data": {"event": "enabledEvent", "integrations": { "All": true }}}, true]
+function SA_IMT__isIntegrationEnabled_trackEventsIntegrationEnabled(testInput, testIntegrationEnabled) as void
+  config = m.config
+  config.settings.plan = {
+    track: {
+      __default: {
+        enabled: true
+        integrations: {}
+      }
+      enabledEvent: {
+        enabled: true
+        integrations: {
+          test: true
+        }
+      }
+    }
+  }
+  segmentLibrary = {
+    log: m.log
+    config: config
+    version: "1"
+  }
+  integrationManager = _SegmentAnalytics_IntegrationsManager(config, segmentLibrary)
+
+  for each integration in integrationManager._integrations
+    if integration.key = "Segment.io" then
+      m.AssertEqual(integrationManager._isIntegrationEnabled(integration, testInput.name, testInput.data), true)
+    else if integration.key = "test"
+      m.AssertEqual(integrationManager._isIntegrationEnabled(integration, testInput.name, testInput.data), testIntegrationEnabled)
+    end if
+  end for
+end function
+
+'+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+'@It test isIntegrationEnabled with undefined track plan event and enabled default settings
+'+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+'@Test ensure test integration track events are always enabled if set by default and not defined in track plan
+'@Params[{"name": "track", "data": {"event": "enabledEvent"}}, false]
+'@Params[{"name": "track", "data": {"event": "enabledEvent"}}, false]
+'@Params[{"name": "track", "data": {"event": "enabledEvent", "integrations": {}}}, false]
+'@Params[{"name": "track", "data": {"event": "enabledEvent", "integrations": { "test": true }}}, true]
+'@Params[{"name": "track", "data": {"event": "enabledEvent", "integrations": { "test": false }}}, false]
+'@Params[{"name": "track", "data": {"event": "enabledEvent", "integrations": { "Segment.io": false }}}, false]
+'@Params[{"name": "track", "data": {"event": "enabledEvent", "integrations": { "all": true }}}, true]
+'@Params[{"name": "track", "data": {"event": "enabledEvent", "integrations": { "All": true }}}, true]
+function SA_IMT__isIntegrationEnabled_trackEventsDefaultEnabledNotInTrackPlan(testInput, testIntegrationEnabled) as void
+  config = m.config
+  config.settings.plan = {
+    track: {
+      __default: {
+        enabled: true
+        integrations: {}
+      }
+    }
+  }
+  segmentLibrary = {
+    log: m.log
+    config: config
+    version: "1"
+  }
+  integrationManager = _SegmentAnalytics_IntegrationsManager(config, segmentLibrary)
+
+  for each integration in integrationManager._integrations
+    if integration.key = "Segment.io" then
+      m.AssertEqual(integrationManager._isIntegrationEnabled(integration, testInput.name, testInput.data), true)
+    else if integration.key = "test"
+      m.AssertEqual(integrationManager._isIntegrationEnabled(integration, testInput.name, testInput.data), testIntegrationEnabled)
+    end if
+  end for
+end function
+
+'+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+'@It test isIntegrationEnabled with undefined track plan event and disabled default settings
+'+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+'@Test ensure test integration track events are always disabled if set by default and not defined in track plan
+'@Params[{"name": "track", "data": {"event": "enabledEvent"}}]
+'@Params[{"name": "track", "data": {"event": "enabledEvent"}}]
+'@Params[{"name": "track", "data": {"event": "enabledEvent", "integrations": {}}}]
+'@Params[{"name": "track", "data": {"event": "enabledEvent", "integrations": { "test": true }}}]
+'@Params[{"name": "track", "data": {"event": "enabledEvent", "integrations": { "test": false }}}]
+'@Params[{"name": "track", "data": {"event": "enabledEvent", "integrations": { "Segment.io": false }}}]
+'@Params[{"name": "track", "data": {"event": "enabledEvent", "integrations": { "all": true }}}]
+'@Params[{"name": "track", "data": {"event": "enabledEvent", "integrations": { "All": true }}}]
+function SA_IMT__isIntegrationEnabled_trackEventsDefaultDisabled(testInput) as void
+  config = m.config
+  config.settings.plan = {
+    track: {
+      __default: {
+        enabled: false
+        integrations: {}
+      }
+    }
+  }
+  segmentLibrary = {
+    log: m.log
+    config: config
+    version: "1"
+  }
+  integrationManager = _SegmentAnalytics_IntegrationsManager(config, segmentLibrary)
+
+  for each integration in integrationManager._integrations
+    if integration.key = "Segment.io" then
+      m.AssertEqual(integrationManager._isIntegrationEnabled(integration, testInput.name, testInput.data), true)
+    else if integration.key = "test"
+      m.AssertEqual(integrationManager._isIntegrationEnabled(integration, testInput.name, testInput.data), false)
+    end if
+  end for
+end function
+
+'+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+'@It test isIntegrationEnabled with disabled track event integration
+'+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+'@Test ensure test integration track events are always disabled if integration is disabled in track plan
+'@Params[{"name": "track", "data": {"event": "enabledEvent"}}]
+'@Params[{"name": "track", "data": {"event": "enabledEvent"}}]
+'@Params[{"name": "track", "data": {"event": "enabledEvent", "integrations": {}}}]
+'@Params[{"name": "track", "data": {"event": "enabledEvent", "integrations": { "test": true }}}]
+'@Params[{"name": "track", "data": {"event": "enabledEvent", "integrations": { "test": false }}}]
+'@Params[{"name": "track", "data": {"event": "enabledEvent", "integrations": { "Segment.io": false }}}]
+'@Params[{"name": "track", "data": {"event": "enabledEvent", "integrations": { "all": true }}}]
+'@Params[{"name": "track", "data": {"event": "enabledEvent", "integrations": { "All": true }}}]
+function SA_IMT__isIntegrationEnabled_trackEventsIntegrationDisabled(testInput) as void
+  config = m.config
+  config.settings.plan = {
+    track: {
+      __default: {
+        enabled: true
+        integrations: {}
+      }
+      enabledEvent: {
+        enabled: true
+        integrations: {
+          test: false
+        }
+      }
+    }
+  }
+  segmentLibrary = {
+    log: m.log
+    config: config
+    version: "1"
+  }
+  integrationManager = _SegmentAnalytics_IntegrationsManager(config, segmentLibrary)
+
+  for each integration in integrationManager._integrations
+    if integration.key = "Segment.io" then
+      m.AssertEqual(integrationManager._isIntegrationEnabled(integration, testInput.name, testInput.data), true)
+    else if integration.key = "test"
+      m.AssertEqual(integrationManager._isIntegrationEnabled(integration, testInput.name, testInput.data), false)
     end if
   end for
 end function
