@@ -206,27 +206,28 @@ sub _SegmentAnalytics_alias(userId as String, options = {} as Object)
 end sub
 
 sub _SegmentAnalytics_processMessages()
-  message = wait(1, m._port)
+  if m._integrationManager = invalid then
+    message = wait(1, m._port)
+    'Initialize remote settings, create array of bundled integrations, and initialize integrationManager
+    if m._remoteSettingsRequest.handleMessage(message) then
+      remoteSettings = invalid
+      if m._remoteSettingsRequest.response.error = true then
+        m.log.error("Failed to fetch remote settings: " + strI(m._remoteSettingsRequest.response.responseCode))
+      else
+        remoteSettings = m._remoteSettingsRequest.response
+        m.log.debug("Fetched remote settings")
+      end if
 
-  'Initialize remote settings, create array of bundled integrations, and initialize integrationManager
-  if m._remoteSettingsRequest.handleMessage(message) then
-    remoteSettings = invalid
-    if m._remoteSettingsRequest.response.error = true then
-      m.log.error("Failed to fetch remote settings: " + strI(m._remoteSettingsRequest.response.responseCode))
-    else
-      remoteSettings = m._remoteSettingsRequest.response
-      m.log.debug("Fetched remote settings")
+      m.config.settings = m._createConfigSettingsWithRemoteSettings(remoteSettings, m.config.defaultSettings)
+      m._configBundledIntegrations()
+
+      m._integrationManager = _SegmentAnalytics_IntegrationsManager(m.config, m)
+      for each data in m._initialRequestQueue
+        m._integrationManager._callIntegrations(data.type, data)
+      end for
+      m._initialRequestQueue.clear()
     end if
-
-    m.config.settings = m._createConfigSettingsWithRemoteSettings(remoteSettings, m.config.defaultSettings)
-    m._configBundledIntegrations()
-
-    m._integrationManager = _SegmentAnalytics_IntegrationsManager(m.config, m)
-    for each data in m._initialRequestQueue
-      m._integrationManager._callIntegrations(data.type, data)
-    end for
-    m._initialRequestQueue.clear()
-  else if m._integrationManager <> invalid
+  else
     m._integrationManager.processMessages()
   end if
 end sub
