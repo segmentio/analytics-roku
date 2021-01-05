@@ -18,14 +18,14 @@ sub setup()
 
   m.top.observeField("event", m.port)
   
-  m.taskCheckInterval = 500 ' Represents the milliseconds the task should run it's event loop
+  m.taskCheckInterval = 250 ' Represents the milliseconds the task should run it's event loop
 end sub
 
 sub startEventLoop()
   if m.service = invalid then
     return
   end if
-
+  
   if m.top.event <> invalid then
     handleEvent(m.top.event)
   end if
