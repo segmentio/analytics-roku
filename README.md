@@ -1,9 +1,9 @@
 # analytics-roku
 
-> **Note**  
-> Segment has paused maintenance on this project, but may return it to an active status in the future. Issues and pull requests from external contributors are not being considered, although internal contributions may appear from time to time. The project remains available under its open source license for anyone to use.
-
 analytics-roku is a Roku client for Segment.
+
+### ⚠️ Maintenance ⚠️
+This library is in maintenance mode. It will send data as intended, but receive no new feature support and only critical maintenance updates from Segment.
 
 <div align="center">
   <img src="https://user-images.githubusercontent.com/843979/56393802-3f139400-61ea-11e9-8a71-8aa47c3ff029.png"/>
