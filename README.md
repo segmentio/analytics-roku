@@ -2,8 +2,8 @@
 
 analytics-roku is a Roku client for Segment.
 
-### ⚠️ Maintenance ⚠️
-This library is in maintenance mode. It will send data as intended, but receive no new feature support and only critical maintenance updates from Segment.
+### ⚠️ Community ⚠️
+This library is community supported. Segment does not manage or update this library. We suggest forking the repo if changes are needed for your project.
 
 <div align="center">
   <img src="https://user-images.githubusercontent.com/843979/56393802-3f139400-61ea-11e9-8a71-8aa47c3ff029.png"/>
